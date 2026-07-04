@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:memento/core/theme/app_theme.dart';
 import 'package:memento/features/notes/presentation/markdown_editor.dart';
+import 'package:memento/features/notes/presentation/markdown_syntax_controller.dart';
 
 void main() {
   Widget wrap(Widget child) {
@@ -61,5 +62,16 @@ void main() {
 
     final TextField field = tester.widget(find.byType(TextField));
     expect(field.style?.fontFamily, 'PT Serif');
+  });
+
+  testWidgets('renders syntax highlighting via MarkdownSyntaxController', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      wrap(MarkdownEditor(initialContent: '# x', onChanged: (_) {})),
+    );
+
+    final TextField field = tester.widget(find.byType(TextField));
+    expect(field.controller, isA<MarkdownSyntaxController>());
   });
 }

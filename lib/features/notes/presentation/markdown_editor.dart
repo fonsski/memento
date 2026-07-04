@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_typography.dart';
+import 'markdown_syntax_controller.dart';
 
-/// A plain-text Markdown editor for a single note: a centered, book-width
-/// column set in the editor's serif prose style. This is a first pass —
-/// it edits raw Markdown text, not the dimmed-marker WYSIWYG-lite
-/// rendering described in the design concept.
+/// A Markdown editor for a single note: a centered, book-width column set
+/// in the editor's serif prose style, with WYSIWYG-lite syntax
+/// highlighting (dimmed markers, styled headings/bold/italic/code) via
+/// [MarkdownSyntaxController].
 ///
 /// Callers should give this widget a key derived from the note's identity
 /// (e.g. `ValueKey(note.id)`) so switching notes creates a fresh editor
@@ -27,7 +28,7 @@ class MarkdownEditor extends StatefulWidget {
 }
 
 class _MarkdownEditorState extends State<MarkdownEditor> {
-  late final TextEditingController _controller = TextEditingController(
+  late final MarkdownSyntaxController _controller = MarkdownSyntaxController(
     text: widget.initialContent,
   );
 

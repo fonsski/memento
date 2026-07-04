@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../core/theme/memento_colors.dart';
+import '../../sync/data/sync_coordinator.dart';
+import '../../sync/presentation/sync_panel.dart';
 import '../domain/note_graph.dart';
 import '../domain/note_repository.dart';
 import '../domain/note_search.dart';
@@ -24,6 +26,7 @@ class HomeScreen extends StatefulWidget {
     required this.repository,
     required this.vaultPath,
     required this.onChangeVault,
+    this.syncCoordinator,
   });
 
   final NoteRepository repository;
@@ -34,6 +37,11 @@ class HomeScreen extends StatefulWidget {
   final String vaultPath;
 
   final Future<void> Function(String newPath) onChangeVault;
+
+  /// Null while sync is still being set up (device identity + pairing
+  /// store load asynchronously); the sync button is disabled until
+  /// then.
+  final SyncCoordinator? syncCoordinator;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -240,6 +248,12 @@ class _HomeScreenState extends State<HomeScreen> {
                         onNewNote: () => _createNote(''),
                         onNewFolder: () => _createFolder(''),
                         onOpenVaultPicker: _showVaultPicker,
+                        onOpenSync: widget.syncCoordinator == null
+                            ? null
+                            : () => showSyncPanel(
+                                context,
+                                widget.syncCoordinator!,
+                              ),
                       ),
                       Expanded(child: _buildTreeArea(theme)),
                     ],
@@ -332,6 +346,7 @@ class _SidebarHeader extends StatelessWidget {
     required this.onNewNote,
     required this.onNewFolder,
     required this.onOpenVaultPicker,
+    required this.onOpenSync,
   });
 
   final bool graphActive;
@@ -340,6 +355,18 @@ class _SidebarHeader extends StatelessWidget {
   final VoidCallback onNewNote;
   final VoidCallback onNewFolder;
   final VoidCallback onOpenVaultPicker;
+
+  /// Null while sync is still starting up; the button is disabled then.
+  final VoidCallback? onOpenSync;
+
+  // Five icons need to fit in a 260px sidebar; the default IconButton
+  // enforces a 48x48 minimum tap target regardless of icon size, which
+  // overflows at that count. Shrink the tap target instead.
+  static const ButtonStyle _compactButtonStyle = ButtonStyle(
+    padding: WidgetStatePropertyAll(EdgeInsets.all(4)),
+    minimumSize: WidgetStatePropertyAll(Size(32, 32)),
+    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -350,6 +377,7 @@ class _SidebarHeader extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
           IconButton(
+            style: _compactButtonStyle,
             icon: Icon(
               Icons.hub_outlined,
               size: 18,
@@ -359,24 +387,34 @@ class _SidebarHeader extends StatelessWidget {
             onPressed: onToggleGraph,
           ),
           IconButton(
+            style: _compactButtonStyle,
             icon: const Icon(Icons.search, size: 18),
             tooltip: 'Поиск (Ctrl+K)',
             onPressed: onSearch,
           ),
           IconButton(
+            style: _compactButtonStyle,
             icon: const Icon(Icons.note_add_outlined, size: 18),
             tooltip: 'Новая заметка',
             onPressed: onNewNote,
           ),
           IconButton(
+            style: _compactButtonStyle,
             icon: const Icon(Icons.create_new_folder_outlined, size: 18),
             tooltip: 'Новая папка',
             onPressed: onNewFolder,
           ),
           IconButton(
+            style: _compactButtonStyle,
             icon: const Icon(Icons.folder_open_outlined, size: 18),
             tooltip: 'Расположение хранилища',
             onPressed: onOpenVaultPicker,
+          ),
+          IconButton(
+            style: _compactButtonStyle,
+            icon: const Icon(Icons.sync, size: 18),
+            tooltip: 'Синхронизация',
+            onPressed: onOpenSync,
           ),
         ],
       ),

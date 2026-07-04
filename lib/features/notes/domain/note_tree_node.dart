@@ -14,6 +14,9 @@ class NoteTreeNode {
     this.children = const [],
   });
 
+  /// For repository-backed trees this is the vault-relative path
+  /// ([NoteRepository] operates on these same strings); it is otherwise
+  /// just a unique key.
   final String id;
   final String title;
   final NoteTreeNodeType type;

@@ -6,11 +6,13 @@ import '../../../core/theme/memento_colors.dart';
 import '../domain/note_repository.dart';
 import '../domain/note_tree_node.dart';
 import 'markdown_editor.dart';
+import 'note_tab_bar.dart';
 import 'note_tree.dart';
 import 'note_tree_context_menu.dart';
 import 'note_tree_dialogs.dart';
 
-/// App shell: a fixed-width sidebar tree next to the main content area.
+/// App shell: a fixed-width sidebar tree next to open-note tabs and the
+/// main content area.
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key, required this.repository});
 
@@ -25,7 +27,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   List<NoteTreeNode>? _tree;
   Object? _loadError;
-  NoteTreeNode? _selectedNote;
+  List<NoteTreeNode> _openNotes = [];
+  String? _activeNoteId;
 
   @override
   void initState() {
@@ -40,6 +43,32 @@ class _HomeScreenState extends State<HomeScreen> {
     } catch (error) {
       if (mounted) setState(() => _loadError = error);
     }
+  }
+
+  void _openNote(NoteTreeNode note) {
+    setState(() {
+      if (!_openNotes.any((n) => n.id == note.id)) {
+        _openNotes = [..._openNotes, note];
+      }
+      _activeNoteId = note.id;
+    });
+  }
+
+  void _closeNote(NoteTreeNode note) {
+    final int index = _openNotes.indexWhere((n) => n.id == note.id);
+    if (index == -1) return;
+    setState(() {
+      _openNotes = [..._openNotes]..removeAt(index);
+      if (_activeNoteId != note.id) return;
+      if (_openNotes.isEmpty) {
+        _activeNoteId = null;
+      } else {
+        final int neighbor = index < _openNotes.length
+            ? index
+            : _openNotes.length - 1;
+        _activeNoteId = _openNotes[neighbor].id;
+      }
+    });
   }
 
   Future<void> _handleNodeAction(NoteTreeNode node, NoteTreeAction action) {
@@ -82,8 +111,13 @@ class _HomeScreenState extends State<HomeScreen> {
     if (title == null || title == node.title || !mounted) return;
     await _runMutation(() async {
       final String newPath = await widget.repository.rename(node.id, title);
-      if (_selectedNote?.id == node.id && mounted) {
-        setState(() => _selectedNote = NoteTreeNode(id: newPath, title: title));
+      final int index = _openNotes.indexWhere((n) => n.id == node.id);
+      if (index != -1 && mounted) {
+        setState(() {
+          _openNotes = [..._openNotes];
+          _openNotes[index] = NoteTreeNode(id: newPath, title: title);
+          if (_activeNoteId == node.id) _activeNoteId = newPath;
+        });
       }
     });
   }
@@ -93,8 +127,8 @@ class _HomeScreenState extends State<HomeScreen> {
     if (!confirmed || !mounted) return;
     await _runMutation(() async {
       await widget.repository.delete(node.id);
-      if (_selectedNote?.id == node.id && mounted) {
-        setState(() => _selectedNote = null);
+      if (_openNotes.any((n) => n.id == node.id) && mounted) {
+        _closeNote(node);
       }
     });
   }
@@ -140,9 +174,24 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           Expanded(
-            child: _ContentArea(
-              repository: widget.repository,
-              selectedNote: _selectedNote,
+            child: Column(
+              children: [
+                NoteTabBar(
+                  openNotes: _openNotes,
+                  activeId: _activeNoteId,
+                  onSelect: (note) => setState(() => _activeNoteId = note.id),
+                  onClose: _closeNote,
+                ),
+                if (_openNotes.isNotEmpty)
+                  Divider(height: 1, color: theme.dividerColor),
+                Expanded(
+                  child: _ContentArea(
+                    repository: widget.repository,
+                    openNotes: _openNotes,
+                    activeNoteId: _activeNoteId,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -177,7 +226,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return NoteTree(
       nodes: tree,
-      onNoteSelected: (node) => setState(() => _selectedNote = node),
+      onNoteSelected: _openNote,
       onNodeAction: _handleNodeAction,
     );
   }
@@ -213,23 +262,39 @@ class _SidebarHeader extends StatelessWidget {
 }
 
 class _ContentArea extends StatelessWidget {
-  const _ContentArea({required this.repository, required this.selectedNote});
+  const _ContentArea({
+    required this.repository,
+    required this.openNotes,
+    required this.activeNoteId,
+  });
 
   final NoteRepository repository;
-  final NoteTreeNode? selectedNote;
+  final List<NoteTreeNode> openNotes;
+  final String? activeNoteId;
 
   @override
   Widget build(BuildContext context) {
-    final NoteTreeNode? note = selectedNote;
-    if (note == null) {
+    if (openNotes.isEmpty) {
       return const _EmptyArchiveMessage();
     }
-    // Keyed by the note's path so switching notes starts a fresh loader
-    // and editor instead of reusing stale content/controller state.
-    return _NoteEditorLoader(
-      key: ValueKey(note.id),
-      repository: repository,
-      note: note,
+
+    final int activeIndex = openNotes.indexWhere(
+      (note) => note.id == activeNoteId,
+    );
+
+    // All open notes' editors stay mounted (via IndexedStack) so switching
+    // tabs doesn't lose in-flight, not-yet-autosaved edits or reload from
+    // disk unnecessarily.
+    return IndexedStack(
+      index: activeIndex < 0 ? 0 : activeIndex,
+      children: [
+        for (final NoteTreeNode note in openNotes)
+          _NoteEditorLoader(
+            key: ValueKey(note.id),
+            repository: repository,
+            note: note,
+          ),
+      ],
     );
   }
 }

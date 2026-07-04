@@ -72,9 +72,12 @@ class SyncCoordinator {
   }
 
   Future<void> dispose() async {
+    _pairingExpiryTimer?.cancel();
     await stopNetworkDiscovery();
     await stopListening();
   }
+
+  Timer? _pairingExpiryTimer;
 
   /// Shows a pairing code, accepting exactly one incoming pairing
   /// attempt with a matching code within [validFor]. Returns the code
@@ -84,13 +87,17 @@ class SyncCoordinator {
   }) {
     final String code = _generatePairingCode();
     _pendingPairingCode = code;
-    Timer(validFor, () {
+    _pairingExpiryTimer?.cancel();
+    _pairingExpiryTimer = Timer(validFor, () {
       if (_pendingPairingCode == code) _pendingPairingCode = null;
     });
     return code;
   }
 
-  void cancelPairing() => _pendingPairingCode = null;
+  void cancelPairing() {
+    _pairingExpiryTimer?.cancel();
+    _pendingPairingCode = null;
+  }
 
   /// Connects to [peer] and pairs with it using [code] (the code shown
   /// on the peer's screen). Persists the peer as trusted on success.

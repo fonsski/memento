@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/memento_colors.dart';
 import '../domain/note_tree_node.dart';
+import 'note_tree_context_menu.dart';
 
 /// A single row of the notes tree: indent guide, expand chevron (folders
 /// only), folder/note icon, and label. Purely presentational — expand and
-/// selection state live in the parent [NoteTree].
+/// selection state live in the parent [NoteTree]; right-clicking shows the
+/// context menu and reports the chosen action via [onAction].
 class NoteTreeItem extends StatelessWidget {
   const NoteTreeItem({
     super.key,
@@ -14,6 +16,7 @@ class NoteTreeItem extends StatelessWidget {
     required this.expanded,
     required this.selected,
     required this.onTap,
+    required this.onAction,
   });
 
   final NoteTreeNode node;
@@ -21,6 +24,18 @@ class NoteTreeItem extends StatelessWidget {
   final bool expanded;
   final bool selected;
   final VoidCallback onTap;
+  final ValueChanged<NoteTreeAction> onAction;
+
+  Future<void> _showContextMenu(BuildContext context, Offset position) async {
+    final NoteTreeAction? action = await showNoteTreeContextMenu(
+      context: context,
+      position: position,
+      node: node,
+    );
+    if (action != null) {
+      onAction(action);
+    }
+  }
 
   static const double rowHeight = 36;
   static const double indentPerLevel = 16;
@@ -37,6 +52,8 @@ class NoteTreeItem extends StatelessWidget {
       type: MaterialType.transparency,
       child: InkWell(
         onTap: onTap,
+        onSecondaryTapUp: (TapUpDetails details) =>
+            _showContextMenu(context, details.globalPosition),
         child: Container(
           height: rowHeight,
           padding: EdgeInsets.only(

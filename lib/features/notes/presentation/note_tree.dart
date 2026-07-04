@@ -3,15 +3,26 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../domain/note_tree_node.dart';
+import 'note_tree_context_menu.dart';
 import 'note_tree_item.dart';
 
 /// Sidebar tree of folders and notes. Manages which folders are expanded
 /// and which node is selected; each [NoteTreeItem] is purely presentational.
 class NoteTree extends StatefulWidget {
-  const NoteTree({super.key, required this.nodes, this.onNoteSelected});
+  const NoteTree({
+    super.key,
+    required this.nodes,
+    this.onNoteSelected,
+    this.onNodeAction,
+  });
 
   final List<NoteTreeNode> nodes;
   final ValueChanged<NoteTreeNode>? onNoteSelected;
+
+  /// Called with the node a context-menu action was chosen for, and the
+  /// chosen [NoteTreeAction]. Applying the action (creating, renaming,
+  /// deleting) is the caller's responsibility.
+  final void Function(NoteTreeNode node, NoteTreeAction action)? onNodeAction;
 
   @override
   State<NoteTree> createState() => _NoteTreeState();
@@ -60,6 +71,7 @@ class _NoteTreeState extends State<NoteTree> {
           expanded: expanded,
           selected: node.id == _selectedId,
           onTap: () => _handleTap(node),
+          onAction: (action) => widget.onNodeAction?.call(node, action),
         ),
         if (node.isFolder)
           AnimatedSize(

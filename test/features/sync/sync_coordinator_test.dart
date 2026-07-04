@@ -50,6 +50,7 @@ void main() {
 
     final String code = coordinatorB.beginPairingAsResponder();
     final DiscoveredPeer peerB = DiscoveredPeer(
+      deviceId: 'b',
       name: 'Телефон',
       host: '127.0.0.1',
       port: coordinatorB.listeningPort!,
@@ -75,6 +76,7 @@ void main() {
 
     coordinatorB.beginPairingAsResponder();
     final DiscoveredPeer peerB = DiscoveredPeer(
+      deviceId: 'b',
       name: 'Телефон',
       host: '127.0.0.1',
       port: coordinatorB.listeningPort!,
@@ -107,6 +109,7 @@ void main() {
     await repoA.writeNote('Из А', 'содержимое из А');
 
     final DiscoveredPeer peerB = DiscoveredPeer(
+      deviceId: 'b',
       name: 'Телефон',
       host: '127.0.0.1',
       port: coordinatorB.listeningPort!,
@@ -129,6 +132,7 @@ void main() {
     tempDirs.addAll([vaultA, vaultB]);
 
     final DiscoveredPeer peerB = DiscoveredPeer(
+      deviceId: 'b',
       name: 'Телефон',
       host: '127.0.0.1',
       port: coordinatorB.listeningPort!,

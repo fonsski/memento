@@ -25,6 +25,7 @@ class SyncDiscoveryService {
   Stream<List<DiscoveredPeer>> get peers => _peersController.stream;
 
   Future<void> startBroadcasting({
+    required String deviceId,
     required String deviceName,
     required int port,
   }) async {
@@ -32,6 +33,7 @@ class SyncDiscoveryService {
       name: deviceName,
       type: syncServiceType,
       port: port,
+      attributes: {'deviceId': deviceId},
     );
     final BonsoirBroadcast broadcast = BonsoirBroadcast(service: service);
     await broadcast.initialize();
@@ -70,8 +72,10 @@ class SyncDiscoveryService {
         final String? host = service.hostAddresses.isNotEmpty
             ? service.hostAddresses.first
             : service.hostname;
-        if (host != null) {
+        final String? deviceId = service.attributes['deviceId'];
+        if (host != null && deviceId != null) {
           _peers[service.name] = DiscoveredPeer(
+            deviceId: deviceId,
             name: service.name,
             host: host,
             port: service.port,

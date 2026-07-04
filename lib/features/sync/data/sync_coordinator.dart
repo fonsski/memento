@@ -58,7 +58,11 @@ class SyncCoordinator {
     if (port == null) {
       throw StateError('Call startListening() before startNetworkDiscovery()');
     }
-    await discovery.startBroadcasting(deviceName: identity.name, port: port);
+    await discovery.startBroadcasting(
+      deviceId: identity.id,
+      deviceName: identity.name,
+      port: port,
+    );
     await discovery.startDiscovery();
   }
 

@@ -77,17 +77,57 @@ class FileSystemNoteRepository implements NoteRepository {
   }
 
   @override
-  Future<String> createNote(String parentPath, String title) =>
-      throw UnimplementedError();
+  Future<String> createNote(String parentPath, String title) async {
+    final String path = _childPath(parentPath, title);
+    await File(_absoluteNotePath(path)).create(exclusive: true);
+    return path;
+  }
 
   @override
-  Future<String> createFolder(String parentPath, String title) =>
-      throw UnimplementedError();
+  Future<String> createFolder(String parentPath, String title) async {
+    final String path = _childPath(parentPath, title);
+    await Directory(_absoluteFolderPath(path)).create();
+    return path;
+  }
 
   @override
-  Future<String> rename(String path, String newTitle) =>
-      throw UnimplementedError();
+  Future<String> rename(String path, String newTitle) async {
+    final String newPath = _childPath(_parentPath(path), newTitle);
+    if (await Directory(_absoluteFolderPath(path)).exists()) {
+      await Directory(
+        _absoluteFolderPath(path),
+      ).rename(_absoluteFolderPath(newPath));
+    } else {
+      await File(_absoluteNotePath(path)).rename(_absoluteNotePath(newPath));
+    }
+    return newPath;
+  }
 
   @override
-  Future<void> delete(String path) => throw UnimplementedError();
+  Future<void> delete(String path) async {
+    final Directory folder = Directory(_absoluteFolderPath(path));
+    if (await folder.exists()) {
+      await folder.delete(recursive: true);
+    } else {
+      await File(_absoluteNotePath(path)).delete();
+    }
+  }
+
+  /// Absolute on-disk path of the folder at vault-relative [path].
+  String _absoluteFolderPath(String path) {
+    return p.joinAll([vaultRoot.path, ...path.split('/')]);
+  }
+
+  /// Vault-relative path of [title] inside the folder at [parentPath]
+  /// (empty string for the vault root).
+  String _childPath(String parentPath, String title) {
+    return parentPath.isEmpty ? title : '$parentPath/$title';
+  }
+
+  /// Vault-relative path of the folder containing [path] (empty string
+  /// if [path] is already at the vault root).
+  String _parentPath(String path) {
+    final String dir = p.posix.dirname(path);
+    return dir == '.' ? '' : dir;
+  }
 }

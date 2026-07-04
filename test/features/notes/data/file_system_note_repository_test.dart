@@ -75,4 +75,76 @@ void main() {
 
     expect(await repository.readNote('folder/nested'), '# Hello, Memento');
   });
+
+  test('createNote creates an empty .md file and returns its path', () async {
+    final String path = await repository.createNote('', 'Идея');
+
+    expect(path, 'Идея');
+    expect(File(p.join(vaultRoot.path, 'Идея.md')).existsSync(), isTrue);
+  });
+
+  test('createNote inside a parent folder nests the path', () async {
+    await Directory(p.join(vaultRoot.path, 'folder')).create();
+
+    final String path = await repository.createNote('folder', 'Идея');
+
+    expect(path, 'folder/Идея');
+    expect(
+      File(p.join(vaultRoot.path, 'folder', 'Идея.md')).existsSync(),
+      isTrue,
+    );
+  });
+
+  test('createNote throws if a note with that title already exists', () async {
+    await repository.createNote('', 'Идея');
+
+    expect(() => repository.createNote('', 'Идея'), throwsA(anything));
+  });
+
+  test(
+    'createFolder creates an empty directory and returns its path',
+    () async {
+      final String path = await repository.createFolder('', 'Архив');
+
+      expect(path, 'Архив');
+      expect(Directory(p.join(vaultRoot.path, 'Архив')).existsSync(), isTrue);
+    },
+  );
+
+  test('rename renames a note file in place', () async {
+    await repository.createNote('', 'Старое');
+
+    final String newPath = await repository.rename('Старое', 'Новое');
+
+    expect(newPath, 'Новое');
+    expect(File(p.join(vaultRoot.path, 'Старое.md')).existsSync(), isFalse);
+    expect(File(p.join(vaultRoot.path, 'Новое.md')).existsSync(), isTrue);
+  });
+
+  test('rename renames a folder in place', () async {
+    await repository.createFolder('', 'Старое');
+
+    final String newPath = await repository.rename('Старое', 'Новое');
+
+    expect(newPath, 'Новое');
+    expect(Directory(p.join(vaultRoot.path, 'Старое')).existsSync(), isFalse);
+    expect(Directory(p.join(vaultRoot.path, 'Новое')).existsSync(), isTrue);
+  });
+
+  test('delete removes a note file', () async {
+    await repository.createNote('', 'Заметка');
+
+    await repository.delete('Заметка');
+
+    expect(File(p.join(vaultRoot.path, 'Заметка.md')).existsSync(), isFalse);
+  });
+
+  test('delete removes a folder and its contents', () async {
+    await repository.createFolder('', 'Папка');
+    await repository.createNote('Папка', 'Внутри');
+
+    await repository.delete('Папка');
+
+    expect(Directory(p.join(vaultRoot.path, 'Папка')).existsSync(), isFalse);
+  });
 }

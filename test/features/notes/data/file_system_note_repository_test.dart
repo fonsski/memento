@@ -76,6 +76,16 @@ void main() {
     expect(await repository.readNote('folder/nested'), '# Hello, Memento');
   });
 
+  test('noteModifiedAt reflects the last write', () async {
+    await repository.createNote('', 'Заметка');
+    final DateTime before = DateTime.now().subtract(const Duration(seconds: 1));
+
+    await repository.writeNote('Заметка', 'обновлено');
+
+    final DateTime modifiedAt = await repository.noteModifiedAt('Заметка');
+    expect(modifiedAt.isAfter(before), isTrue);
+  });
+
   test('createNote creates an empty .md file and returns its path', () async {
     final String path = await repository.createNote('', 'Идея');
 

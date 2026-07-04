@@ -87,6 +87,13 @@ class FileSystemNoteRepository implements NoteRepository {
     return File(_absoluteNotePath(path)).writeAsString(content);
   }
 
+  /// Last-modified time of the `.md` file backing note [path], used by
+  /// sync's last-write-wins comparisons.
+  Future<DateTime> noteModifiedAt(String path) async {
+    final FileStat stat = await File(_absoluteNotePath(path)).stat();
+    return stat.modified;
+  }
+
   /// Absolute on-disk path of the `.md` file backing note [path].
   String _absoluteNotePath(String path) {
     return '${p.joinAll([vaultRoot.path, ...path.split('/')])}$noteExtension';

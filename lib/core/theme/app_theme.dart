@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'app_colors.dart';
 import 'app_typography.dart';
+import 'memento_colors.dart';
 
 /// Corner radius scale used across the app: small controls, cards/inputs,
 /// and floating surfaces (modals, large popovers).
@@ -30,6 +31,7 @@ class AppTheme {
     onAccent: MementoDarkColors.onAccent,
     error: MementoDarkColors.error,
     hoverOverlay: MementoDarkColors.hoverOverlay,
+    mementoColors: MementoColors.dark(),
   );
 
   static ThemeData get light => _build(
@@ -43,6 +45,7 @@ class AppTheme {
     onAccent: MementoLightColors.onAccent,
     error: MementoLightColors.error,
     hoverOverlay: MementoLightColors.hoverOverlay,
+    mementoColors: MementoColors.light(),
   );
 
   static ThemeData _build({
@@ -56,6 +59,7 @@ class AppTheme {
     required Color onAccent,
     required Color error,
     required Color hoverOverlay,
+    required MementoColors mementoColors,
   }) {
     final ColorScheme colorScheme = ColorScheme(
       brightness: brightness,
@@ -88,6 +92,7 @@ class AppTheme {
       textTheme: textTheme,
       splashFactory: InkSparkle.splashFactory,
       hoverColor: hoverOverlay,
+      extensions: [mementoColors],
       dividerTheme: DividerThemeData(color: divider, thickness: 1, space: 1),
       cardTheme: CardThemeData(
         color: surface,

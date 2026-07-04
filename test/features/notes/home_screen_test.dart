@@ -6,6 +6,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:memento/core/theme/app_theme.dart';
 import 'package:memento/features/notes/data/file_system_note_repository.dart';
 import 'package:memento/features/notes/presentation/home_screen.dart';
+import 'package:memento/features/notes/presentation/note_tab_bar.dart';
+import 'package:memento/features/notes/presentation/note_tree.dart';
 
 void main() {
   late Directory vaultRoot;
@@ -246,5 +248,240 @@ void main() {
 
     expect(noteFile.existsSync(), isFalse);
     expect(find.text('Удалить меня'), findsNothing);
+  });
+
+  Finder tabBarText(String text) =>
+      find.descendant(of: find.byType(NoteTabBar), matching: find.text(text));
+
+  testWidgets('opening multiple notes creates a tab for each', (
+    WidgetTester tester,
+  ) async {
+    final FileSystemNoteRepository repository = FileSystemNoteRepository(
+      vaultRoot,
+    );
+
+    await tester.runAsync(() async {
+      await repository.createNote('', 'Заметка А');
+      await repository.createNote('', 'Заметка Б');
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark,
+          home: HomeScreen(repository: repository),
+        ),
+      );
+      await pumpUntil(tester, treeLoaded);
+
+      await tester.tap(find.text('Заметка А'));
+      await pumpUntil(tester, treeLoaded);
+      await tester.tap(find.text('Заметка Б'));
+      await pumpUntil(tester, treeLoaded);
+    });
+    await tester.pump();
+
+    expect(tabBarText('Заметка А'), findsOneWidget);
+    expect(tabBarText('Заметка Б'), findsOneWidget);
+  });
+
+  testWidgets('switching tabs shows the corresponding note content', (
+    WidgetTester tester,
+  ) async {
+    final FileSystemNoteRepository repository = FileSystemNoteRepository(
+      vaultRoot,
+    );
+
+    await tester.runAsync(() async {
+      await repository.createNote('', 'Заметка А');
+      await repository.writeNote('Заметка А', 'Текст А');
+      await repository.createNote('', 'Заметка Б');
+      await repository.writeNote('Заметка Б', 'Текст Б');
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark,
+          home: HomeScreen(repository: repository),
+        ),
+      );
+      await pumpUntil(tester, treeLoaded);
+
+      await tester.tap(find.text('Заметка А'));
+      await pumpUntil(tester, treeLoaded);
+      await tester.tap(find.text('Заметка Б'));
+      await pumpUntil(tester, treeLoaded);
+    });
+    await tester.pump();
+
+    expect(find.text('Текст Б'), findsOneWidget);
+
+    await tester.tap(tabBarText('Заметка А'));
+    await tester.pump();
+
+    expect(find.text('Текст А'), findsOneWidget);
+  });
+
+  testWidgets('closing the active tab activates a neighbor', (
+    WidgetTester tester,
+  ) async {
+    final FileSystemNoteRepository repository = FileSystemNoteRepository(
+      vaultRoot,
+    );
+
+    await tester.runAsync(() async {
+      await repository.createNote('', 'Заметка А');
+      await repository.writeNote('Заметка А', 'Текст А');
+      await repository.createNote('', 'Заметка Б');
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark,
+          home: HomeScreen(repository: repository),
+        ),
+      );
+      await pumpUntil(tester, treeLoaded);
+
+      await tester.tap(find.text('Заметка А'));
+      await pumpUntil(tester, treeLoaded);
+      await tester.tap(find.text('Заметка Б'));
+      await pumpUntil(tester, treeLoaded);
+    });
+    await tester.pump();
+
+    await tester.tap(
+      find
+          .descendant(
+            of: find.byType(NoteTabBar),
+            matching: find.byIcon(Icons.close),
+          )
+          .last,
+    );
+    await tester.pump();
+
+    expect(tabBarText('Заметка Б'), findsNothing);
+    expect(find.text('Текст А'), findsOneWidget);
+  });
+
+  testWidgets('closing the last open tab shows the empty-archive message', (
+    WidgetTester tester,
+  ) async {
+    final FileSystemNoteRepository repository = FileSystemNoteRepository(
+      vaultRoot,
+    );
+
+    await tester.runAsync(() async {
+      await repository.createNote('', 'Заметка');
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark,
+          home: HomeScreen(repository: repository),
+        ),
+      );
+      await pumpUntil(tester, treeLoaded);
+
+      await tester.tap(find.text('Заметка'));
+      await pumpUntil(tester, treeLoaded);
+    });
+    await tester.pump();
+
+    await tester.tap(find.byIcon(Icons.close));
+    await tester.pump();
+
+    expect(find.byIcon(Icons.close), findsNothing);
+    expect(find.text('Место, где мысли остаются навсегда.'), findsOneWidget);
+  });
+
+  testWidgets('renaming an open note updates its tab label', (
+    WidgetTester tester,
+  ) async {
+    final FileSystemNoteRepository repository = FileSystemNoteRepository(
+      vaultRoot,
+    );
+    final File newFile = File('${vaultRoot.path}/Новое имя.md');
+
+    await tester.runAsync(() async {
+      await repository.createNote('', 'Старое имя');
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark,
+          home: HomeScreen(repository: repository),
+        ),
+      );
+      await pumpUntil(tester, treeLoaded);
+
+      await tester.tap(find.text('Старое имя'));
+      await pumpUntil(tester, treeLoaded);
+
+      // Now that the note is open, its title also appears in the tab bar;
+      // scope the right-click to the tree row specifically.
+      await tester.tap(
+        find.descendant(
+          of: find.byType(NoteTree),
+          matching: find.text('Старое имя'),
+        ),
+        buttons: kSecondaryButton,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Переименовать'));
+      await tester.pumpAndSettle();
+      // The note is already open, so its own editor's TextField also
+      // exists now; scope entry to the rename dialog's field.
+      await tester.enterText(
+        find.descendant(
+          of: find.byType(AlertDialog),
+          matching: find.byType(TextField),
+        ),
+        'Новое имя',
+      );
+      await tester.tap(find.text('Сохранить'));
+      await pumpUntil(tester, newFile.existsSync);
+      await pumpUntil(
+        tester,
+        () => tabBarText('Новое имя').evaluate().isNotEmpty,
+      );
+    });
+    await tester.pump();
+
+    expect(tabBarText('Новое имя'), findsOneWidget);
+    expect(tabBarText('Старое имя'), findsNothing);
+  });
+
+  testWidgets('deleting an open note closes its tab', (
+    WidgetTester tester,
+  ) async {
+    final FileSystemNoteRepository repository = FileSystemNoteRepository(
+      vaultRoot,
+    );
+    final File noteFile = File('${vaultRoot.path}/Заметка.md');
+
+    await tester.runAsync(() async {
+      await repository.createNote('', 'Заметка');
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark,
+          home: HomeScreen(repository: repository),
+        ),
+      );
+      await pumpUntil(tester, treeLoaded);
+
+      await tester.tap(find.text('Заметка'));
+      await pumpUntil(tester, treeLoaded);
+
+      await tester.tap(
+        find.descendant(
+          of: find.byType(NoteTree),
+          matching: find.text('Заметка'),
+        ),
+        buttons: kSecondaryButton,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Удалить'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Удалить'));
+      await pumpUntil(tester, () => !noteFile.existsSync());
+      await pumpUntil(
+        tester,
+        () => find.byIcon(Icons.close).evaluate().isEmpty,
+      );
+    });
+    await tester.pump();
+
+    expect(find.byIcon(Icons.close), findsNothing);
+    expect(find.text('Место, где мысли остаются навсегда.'), findsOneWidget);
   });
 }

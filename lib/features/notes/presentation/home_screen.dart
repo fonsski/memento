@@ -4,9 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../core/theme/memento_colors.dart';
+import '../domain/note_graph.dart';
 import '../domain/note_repository.dart';
 import '../domain/note_search.dart';
 import '../domain/note_tree_node.dart';
+import 'graph_view.dart';
 import 'markdown_editor.dart';
 import 'note_tab_bar.dart';
 import 'note_tree.dart';
@@ -32,6 +34,8 @@ class _HomeScreenState extends State<HomeScreen> {
   Object? _loadError;
   List<NoteTreeNode> _openNotes = [];
   String? _activeNoteId;
+  bool _showGraph = false;
+  NoteGraph? _graph;
 
   @override
   void initState() {
@@ -136,6 +140,27 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
+  Future<void> _toggleGraph() async {
+    if (_showGraph) {
+      setState(() => _showGraph = false);
+      return;
+    }
+    setState(() {
+      _showGraph = true;
+      _graph = null;
+    });
+    final NoteGraph graph = await buildNoteGraph(
+      widget.repository,
+      _tree ?? [],
+    );
+    if (mounted) setState(() => _graph = graph);
+  }
+
+  void _handleGraphNodeTap(GraphNode node) {
+    setState(() => _showGraph = false);
+    _openNote(NoteTreeNode(id: node.id, title: node.title));
+  }
+
   Future<void> _showSearch() async {
     final List<NoteTreeNode>? tree = _tree;
     if (tree == null) return;
@@ -187,6 +212,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: Column(
                     children: [
                       _SidebarHeader(
+                        graphActive: _showGraph,
+                        onToggleGraph: _toggleGraph,
                         onSearch: _showSearch,
                         onNewNote: () => _createNote(''),
                         onNewFolder: () => _createFolder(''),
@@ -197,26 +224,28 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               Expanded(
-                child: Column(
-                  children: [
-                    NoteTabBar(
-                      openNotes: _openNotes,
-                      activeId: _activeNoteId,
-                      onSelect: (note) =>
-                          setState(() => _activeNoteId = note.id),
-                      onClose: _closeNote,
-                    ),
-                    if (_openNotes.isNotEmpty)
-                      Divider(height: 1, color: theme.dividerColor),
-                    Expanded(
-                      child: _ContentArea(
-                        repository: widget.repository,
-                        openNotes: _openNotes,
-                        activeNoteId: _activeNoteId,
+                child: _showGraph
+                    ? _buildGraphArea(theme)
+                    : Column(
+                        children: [
+                          NoteTabBar(
+                            openNotes: _openNotes,
+                            activeId: _activeNoteId,
+                            onSelect: (note) =>
+                                setState(() => _activeNoteId = note.id),
+                            onClose: _closeNote,
+                          ),
+                          if (_openNotes.isNotEmpty)
+                            Divider(height: 1, color: theme.dividerColor),
+                          Expanded(
+                            child: _ContentArea(
+                              repository: widget.repository,
+                              openNotes: _openNotes,
+                              activeNoteId: _activeNoteId,
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                  ],
-                ),
               ),
             ],
           ),
@@ -256,26 +285,54 @@ class _HomeScreenState extends State<HomeScreen> {
       onNodeAction: _handleNodeAction,
     );
   }
+
+  Widget _buildGraphArea(ThemeData theme) {
+    final NoteGraph? graph = _graph;
+    if (graph == null) {
+      return const Center(
+        child: SizedBox(
+          width: 20,
+          height: 20,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      );
+    }
+    return GraphView(graph: graph, onNodeTap: _handleGraphNodeTap);
+  }
 }
 
 class _SidebarHeader extends StatelessWidget {
   const _SidebarHeader({
+    required this.graphActive,
+    required this.onToggleGraph,
     required this.onSearch,
     required this.onNewNote,
     required this.onNewFolder,
   });
 
+  final bool graphActive;
+  final VoidCallback onToggleGraph;
   final VoidCallback onSearch;
   final VoidCallback onNewNote;
   final VoidCallback onNewFolder;
 
   @override
   Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
+          IconButton(
+            icon: Icon(
+              Icons.hub_outlined,
+              size: 18,
+              color: graphActive ? theme.colorScheme.primary : null,
+            ),
+            tooltip: 'Граф связей',
+            onPressed: onToggleGraph,
+          ),
           IconButton(
             icon: const Icon(Icons.search, size: 18),
             tooltip: 'Поиск (Ctrl+K)',

@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:memento/core/theme/app_theme.dart';
 import 'package:memento/features/notes/data/file_system_note_repository.dart';
+import 'package:memento/features/notes/presentation/graph_view.dart';
 import 'package:memento/features/notes/presentation/home_screen.dart';
 import 'package:memento/features/notes/presentation/note_tab_bar.dart';
 import 'package:memento/features/notes/presentation/note_tree.dart';
@@ -548,5 +549,88 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Поиск заметок…'), findsOneWidget);
+  });
+
+  testWidgets('toggling the graph view shows the connected notes', (
+    WidgetTester tester,
+  ) async {
+    final FileSystemNoteRepository repository = FileSystemNoteRepository(
+      vaultRoot,
+    );
+
+    await tester.runAsync(() async {
+      await repository.createNote('', 'Заметка А');
+      await repository.createNote('', 'Заметка Б');
+      await repository.writeNote('Заметка А', 'Смотри [[Заметка Б]].');
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark,
+          home: HomeScreen(repository: repository),
+        ),
+      );
+      await pumpUntil(tester, treeLoaded);
+
+      await tester.tap(find.byIcon(Icons.hub_outlined));
+      await pumpUntil(
+        tester,
+        () => find.byType(CircularProgressIndicator).evaluate().isEmpty,
+      );
+    });
+    await tester.pumpAndSettle();
+
+    expect(find.text('Пока нет связанных заметок'), findsNothing);
+    // IconButtons in the sidebar also render as Tooltip, so scope to the
+    // graph canvas specifically.
+    expect(
+      find.descendant(
+        of: find.byType(GraphView),
+        matching: find.byType(Tooltip),
+      ),
+      findsNWidgets(2),
+    );
+  });
+
+  testWidgets('tapping a graph node opens it as a tab and closes the graph', (
+    WidgetTester tester,
+  ) async {
+    final FileSystemNoteRepository repository = FileSystemNoteRepository(
+      vaultRoot,
+    );
+
+    await tester.runAsync(() async {
+      await repository.createNote('', 'Заметка А');
+      await repository.createNote('', 'Заметка Б');
+      await repository.writeNote('Заметка А', 'Смотри [[Заметка Б]].');
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark,
+          home: HomeScreen(repository: repository),
+        ),
+      );
+      await pumpUntil(tester, treeLoaded);
+
+      await tester.tap(find.byIcon(Icons.hub_outlined));
+      await pumpUntil(
+        tester,
+        () => find.byType(CircularProgressIndicator).evaluate().isEmpty,
+      );
+      await tester.tap(
+        find
+            .descendant(
+              of: find.byType(GraphView),
+              matching: find.byType(Tooltip),
+            )
+            .first,
+      );
+      // Opening the tapped note as a tab triggers its own content load.
+      await pumpUntil(
+        tester,
+        () => find.byType(CircularProgressIndicator).evaluate().isEmpty,
+      );
+    });
+    await tester.pump();
+
+    expect(find.byType(GraphView), findsNothing);
+    expect(find.byIcon(Icons.close), findsOneWidget);
   });
 }

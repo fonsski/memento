@@ -5,10 +5,18 @@ import 'package:path_provider/path_provider.dart';
 
 import '../domain/note_repository.dart';
 import '../domain/note_tree_node.dart';
+import 'vault_settings.dart';
 
-/// The default vault: a `Memento` folder inside the platform's
-/// application-documents directory.
+/// The vault the user previously chose (see [VaultSettings]), or a
+/// `Memento` folder inside the platform's application-documents
+/// directory if none has been chosen yet.
 Future<FileSystemNoteRepository> createDefaultNoteRepository() async {
+  final VaultSettings settings = await VaultSettings.create();
+  final String? savedPath = await settings.readVaultPath();
+  if (savedPath != null) {
+    return FileSystemNoteRepository(Directory(savedPath));
+  }
+
   final Directory documents = await getApplicationDocumentsDirectory();
   return FileSystemNoteRepository(Directory(p.join(documents.path, 'Memento')));
 }

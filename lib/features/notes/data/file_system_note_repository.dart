@@ -62,11 +62,19 @@ class FileSystemNoteRepository implements NoteRepository {
   }
 
   @override
-  Future<String> readNote(String path) => throw UnimplementedError();
+  Future<String> readNote(String path) {
+    return File(_absoluteNotePath(path)).readAsString();
+  }
 
   @override
-  Future<void> writeNote(String path, String content) =>
-      throw UnimplementedError();
+  Future<void> writeNote(String path, String content) {
+    return File(_absoluteNotePath(path)).writeAsString(content);
+  }
+
+  /// Absolute on-disk path of the `.md` file backing note [path].
+  String _absoluteNotePath(String path) {
+    return '${p.joinAll([vaultRoot.path, ...path.split('/')])}$noteExtension';
+  }
 
   @override
   Future<String> createNote(String parentPath, String title) =>

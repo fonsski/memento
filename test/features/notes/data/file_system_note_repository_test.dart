@@ -64,4 +64,15 @@ void main() {
     expect(tree.single.children.single.id, 'folder/nested');
     expect(tree.single.children.single.title, 'nested');
   });
+
+  test('reads back the content written for a note', () async {
+    final Directory sub = await Directory(
+      p.join(vaultRoot.path, 'folder'),
+    ).create();
+    await File(p.join(sub.path, 'nested.md')).writeAsString('placeholder');
+
+    await repository.writeNote('folder/nested', '# Hello, Memento');
+
+    expect(await repository.readNote('folder/nested'), '# Hello, Memento');
+  });
 }

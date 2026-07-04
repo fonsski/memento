@@ -1,15 +1,18 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../core/theme/memento_colors.dart';
 import '../domain/note_repository.dart';
+import '../domain/note_search.dart';
 import '../domain/note_tree_node.dart';
 import 'markdown_editor.dart';
 import 'note_tab_bar.dart';
 import 'note_tree.dart';
 import 'note_tree_context_menu.dart';
 import 'note_tree_dialogs.dart';
+import 'search_palette.dart';
 
 /// App shell: a fixed-width sidebar tree next to open-note tabs and the
 /// main content area.
@@ -133,6 +136,16 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
+  Future<void> _showSearch() async {
+    final List<NoteTreeNode>? tree = _tree;
+    if (tree == null) return;
+    final NoteTreeNode? selected = await showSearchPalette(
+      context,
+      flattenNotes(tree),
+    );
+    if (selected != null) _openNote(selected);
+  }
+
   /// Runs a repository mutation, reloading the tree on success and
   /// surfacing a snackbar on failure (e.g. a duplicate title).
   Future<void> _runMutation(Future<void> Function() action) async {
@@ -152,49 +165,62 @@ class _HomeScreenState extends State<HomeScreen> {
     final ThemeData theme = Theme.of(context);
     final MementoColors colors = theme.extension<MementoColors>()!;
 
-    return Scaffold(
-      body: Row(
-        children: [
-          Container(
-            width: _sidebarWidth,
-            decoration: BoxDecoration(
-              color: colors.navPanel,
-              border: Border(right: BorderSide(color: theme.dividerColor)),
-            ),
-            child: SafeArea(
-              child: Column(
-                children: [
-                  _SidebarHeader(
-                    onNewNote: () => _createNote(''),
-                    onNewFolder: () => _createFolder(''),
+    return CallbackShortcuts(
+      bindings: {
+        LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyK):
+            _showSearch,
+        LogicalKeySet(LogicalKeyboardKey.meta, LogicalKeyboardKey.keyK):
+            _showSearch,
+      },
+      child: Focus(
+        autofocus: true,
+        child: Scaffold(
+          body: Row(
+            children: [
+              Container(
+                width: _sidebarWidth,
+                decoration: BoxDecoration(
+                  color: colors.navPanel,
+                  border: Border(right: BorderSide(color: theme.dividerColor)),
+                ),
+                child: SafeArea(
+                  child: Column(
+                    children: [
+                      _SidebarHeader(
+                        onSearch: _showSearch,
+                        onNewNote: () => _createNote(''),
+                        onNewFolder: () => _createFolder(''),
+                      ),
+                      Expanded(child: _buildTreeArea(theme)),
+                    ],
                   ),
-                  Expanded(child: _buildTreeArea(theme)),
-                ],
+                ),
               ),
-            ),
-          ),
-          Expanded(
-            child: Column(
-              children: [
-                NoteTabBar(
-                  openNotes: _openNotes,
-                  activeId: _activeNoteId,
-                  onSelect: (note) => setState(() => _activeNoteId = note.id),
-                  onClose: _closeNote,
+              Expanded(
+                child: Column(
+                  children: [
+                    NoteTabBar(
+                      openNotes: _openNotes,
+                      activeId: _activeNoteId,
+                      onSelect: (note) =>
+                          setState(() => _activeNoteId = note.id),
+                      onClose: _closeNote,
+                    ),
+                    if (_openNotes.isNotEmpty)
+                      Divider(height: 1, color: theme.dividerColor),
+                    Expanded(
+                      child: _ContentArea(
+                        repository: widget.repository,
+                        openNotes: _openNotes,
+                        activeNoteId: _activeNoteId,
+                      ),
+                    ),
+                  ],
                 ),
-                if (_openNotes.isNotEmpty)
-                  Divider(height: 1, color: theme.dividerColor),
-                Expanded(
-                  child: _ContentArea(
-                    repository: widget.repository,
-                    openNotes: _openNotes,
-                    activeNoteId: _activeNoteId,
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -233,8 +259,13 @@ class _HomeScreenState extends State<HomeScreen> {
 }
 
 class _SidebarHeader extends StatelessWidget {
-  const _SidebarHeader({required this.onNewNote, required this.onNewFolder});
+  const _SidebarHeader({
+    required this.onSearch,
+    required this.onNewNote,
+    required this.onNewFolder,
+  });
 
+  final VoidCallback onSearch;
   final VoidCallback onNewNote;
   final VoidCallback onNewFolder;
 
@@ -245,6 +276,11 @@ class _SidebarHeader extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
+          IconButton(
+            icon: const Icon(Icons.search, size: 18),
+            tooltip: 'Поиск (Ctrl+K)',
+            onPressed: onSearch,
+          ),
           IconButton(
             icon: const Icon(Icons.note_add_outlined, size: 18),
             tooltip: 'Новая заметка',

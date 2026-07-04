@@ -2,12 +2,14 @@ import 'dart:io';
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:memento/core/theme/app_theme.dart';
 import 'package:memento/features/notes/data/file_system_note_repository.dart';
 import 'package:memento/features/notes/presentation/home_screen.dart';
 import 'package:memento/features/notes/presentation/note_tab_bar.dart';
 import 'package:memento/features/notes/presentation/note_tree.dart';
+import 'package:memento/features/notes/presentation/search_palette.dart';
 
 void main() {
   late Directory vaultRoot;
@@ -483,5 +485,68 @@ void main() {
 
     expect(find.byIcon(Icons.close), findsNothing);
     expect(find.text('Место, где мысли остаются навсегда.'), findsOneWidget);
+  });
+
+  testWidgets('the search icon opens a chosen note as a tab', (
+    WidgetTester tester,
+  ) async {
+    final FileSystemNoteRepository repository = FileSystemNoteRepository(
+      vaultRoot,
+    );
+
+    await tester.runAsync(() async {
+      await repository.createNote('', 'Заметка А');
+      await repository.createNote('', 'Заметка Б');
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark,
+          home: HomeScreen(repository: repository),
+        ),
+      );
+      await pumpUntil(tester, treeLoaded);
+
+      await tester.tap(find.byIcon(Icons.search));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'Б');
+      await tester.pump();
+      await tester.tap(
+        find.descendant(
+          of: find.byType(SearchPalette),
+          matching: find.text('Заметка Б'),
+        ),
+      );
+      // Selecting a result opens it as a tab, which triggers a real
+      // content load (its own CircularProgressIndicator) — pumpAndSettle
+      // would hang on that, so poll instead.
+      await pumpUntil(tester, treeLoaded);
+    });
+    await tester.pump();
+
+    expect(tabBarText('Заметка Б'), findsOneWidget);
+  });
+
+  testWidgets('Ctrl+K opens the search palette', (WidgetTester tester) async {
+    final FileSystemNoteRepository repository = FileSystemNoteRepository(
+      vaultRoot,
+    );
+
+    await tester.runAsync(() async {
+      await repository.createNote('', 'Заметка А');
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark,
+          home: HomeScreen(repository: repository),
+        ),
+      );
+      await pumpUntil(tester, treeLoaded);
+    });
+    await tester.pump();
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.control);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyK);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.control);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Поиск заметок…'), findsOneWidget);
   });
 }

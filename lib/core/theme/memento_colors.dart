@@ -9,6 +9,7 @@ import 'app_colors.dart';
 @immutable
 class MementoColors extends ThemeExtension<MementoColors> {
   const MementoColors({
+    required this.navPanel,
     required this.hoverOverlay,
     required this.activeOverlay,
     required this.selectedBackground,
@@ -22,6 +23,7 @@ class MementoColors extends ThemeExtension<MementoColors> {
   });
 
   factory MementoColors.dark() => const MementoColors(
+    navPanel: MementoDarkColors.navPanel,
     hoverOverlay: MementoDarkColors.hoverOverlay,
     activeOverlay: MementoDarkColors.activeOverlay,
     selectedBackground: MementoDarkColors.selectedBackground,
@@ -35,6 +37,7 @@ class MementoColors extends ThemeExtension<MementoColors> {
   );
 
   factory MementoColors.light() => const MementoColors(
+    navPanel: MementoLightColors.navPanel,
     hoverOverlay: MementoLightColors.hoverOverlay,
     activeOverlay: MementoLightColors.activeOverlay,
     selectedBackground: MementoLightColors.selectedBackground,
@@ -47,6 +50,7 @@ class MementoColors extends ThemeExtension<MementoColors> {
     searchHighlight: MementoLightColors.searchHighlight,
   );
 
+  final Color navPanel;
   final Color hoverOverlay;
   final Color activeOverlay;
   final Color selectedBackground;
@@ -60,6 +64,7 @@ class MementoColors extends ThemeExtension<MementoColors> {
 
   @override
   MementoColors copyWith({
+    Color? navPanel,
     Color? hoverOverlay,
     Color? activeOverlay,
     Color? selectedBackground,
@@ -72,6 +77,7 @@ class MementoColors extends ThemeExtension<MementoColors> {
     Color? searchHighlight,
   }) {
     return MementoColors(
+      navPanel: navPanel ?? this.navPanel,
       hoverOverlay: hoverOverlay ?? this.hoverOverlay,
       activeOverlay: activeOverlay ?? this.activeOverlay,
       selectedBackground: selectedBackground ?? this.selectedBackground,
@@ -89,6 +95,7 @@ class MementoColors extends ThemeExtension<MementoColors> {
   MementoColors lerp(ThemeExtension<MementoColors>? other, double t) {
     if (other is! MementoColors) return this;
     return MementoColors(
+      navPanel: Color.lerp(navPanel, other.navPanel, t)!,
       hoverOverlay: Color.lerp(hoverOverlay, other.hoverOverlay, t)!,
       activeOverlay: Color.lerp(activeOverlay, other.activeOverlay, t)!,
       selectedBackground:

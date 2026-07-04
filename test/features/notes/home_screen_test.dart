@@ -38,12 +38,15 @@ void main() {
   }) async {
     const Duration step = Duration(milliseconds: 100);
     for (int i = 0; i < maxTries; i++) {
-      if (condition()) return;
       await Future<void>.delayed(step);
       // Pump *with* a duration: a bare pump() advances by zero simulated
       // time, so animation-driven tickers (e.g. a dialog's exit
-      // transition) never progress even though real time passes.
+      // transition) never progress even though real time passes. Pump
+      // *before* checking: a preceding gesture's setState may not have
+      // been applied to the element tree yet, so checking first can
+      // wrongly conclude the condition already holds.
       await tester.pump(step);
+      if (condition()) return;
     }
     if (!condition()) {
       throw StateError('Condition not met after ${maxTries * 100}ms');
@@ -53,7 +56,7 @@ void main() {
   bool treeLoaded() =>
       find.byType(CircularProgressIndicator).evaluate().isEmpty;
 
-  testWidgets('selecting a note replaces the empty-state content', (
+  testWidgets('selecting a note loads its content into the editor', (
     WidgetTester tester,
   ) async {
     final FileSystemNoteRepository repository = FileSystemNoteRepository(
@@ -62,6 +65,7 @@ void main() {
 
     await tester.runAsync(() async {
       await repository.createNote('', 'О проекте');
+      await repository.writeNote('О проекте', 'Содержимое заметки');
       await tester.pumpWidget(
         MaterialApp(
           theme: AppTheme.dark,
@@ -71,12 +75,43 @@ void main() {
       await pumpUntil(tester, treeLoaded);
 
       await tester.tap(find.text('О проекте'));
-      await tester.pumpAndSettle();
+      // Selecting a note triggers its own (separate) content load, which
+      // briefly shows another CircularProgressIndicator.
+      await pumpUntil(tester, treeLoaded);
     });
     await tester.pump();
 
     expect(find.text('Место, где мысли остаются навсегда.'), findsNothing);
-    expect(find.text('О проекте'), findsWidgets);
+    expect(find.text('Содержимое заметки'), findsOneWidget);
+  });
+
+  testWidgets('autosaves edits to the note after a debounce', (
+    WidgetTester tester,
+  ) async {
+    final FileSystemNoteRepository repository = FileSystemNoteRepository(
+      vaultRoot,
+    );
+    final File file = File('${vaultRoot.path}/Заметка.md');
+
+    await tester.runAsync(() async {
+      await repository.createNote('', 'Заметка');
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark,
+          home: HomeScreen(repository: repository),
+        ),
+      );
+      await pumpUntil(tester, treeLoaded);
+
+      await tester.tap(find.text('Заметка'));
+      await pumpUntil(tester, treeLoaded);
+
+      await tester.enterText(find.byType(TextField), 'новый текст');
+      await pumpUntil(tester, () => file.readAsStringSync() == 'новый текст');
+    });
+    await tester.pump();
+
+    expect(file.readAsStringSync(), 'новый текст');
   });
 
   testWidgets('shows an empty tree for a freshly created vault', (

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/memento_colors.dart';
 import '../domain/note_repository.dart';
 import '../domain/note_tree_node.dart';
+import 'markdown_editor.dart';
 import 'note_tree.dart';
 import 'note_tree_context_menu.dart';
 import 'note_tree_dialogs.dart';
@@ -138,7 +139,12 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
           ),
-          Expanded(child: _ContentArea(selectedNote: _selectedNote)),
+          Expanded(
+            child: _ContentArea(
+              repository: widget.repository,
+              selectedNote: _selectedNote,
+            ),
+          ),
         ],
       ),
     );
@@ -207,33 +213,111 @@ class _SidebarHeader extends StatelessWidget {
 }
 
 class _ContentArea extends StatelessWidget {
-  const _ContentArea({required this.selectedNote});
+  const _ContentArea({required this.repository, required this.selectedNote});
 
+  final NoteRepository repository;
   final NoteTreeNode? selectedNote;
 
   @override
   Widget build(BuildContext context) {
-    final TextTheme textTheme = Theme.of(context).textTheme;
     final NoteTreeNode? note = selectedNote;
+    if (note == null) {
+      return const _EmptyArchiveMessage();
+    }
+    // Keyed by the note's path so switching notes starts a fresh loader
+    // and editor instead of reusing stale content/controller state.
+    return _NoteEditorLoader(
+      key: ValueKey(note.id),
+      repository: repository,
+      note: note,
+    );
+  }
+}
 
+class _EmptyArchiveMessage extends StatelessWidget {
+  const _EmptyArchiveMessage();
+
+  @override
+  Widget build(BuildContext context) {
+    final TextTheme textTheme = Theme.of(context).textTheme;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
-        child: note == null
-            ? Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text('Memento', style: textTheme.headlineMedium),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Место, где мысли остаются навсегда.',
-                    style: textTheme.bodyMedium,
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-              )
-            : Text(note.title, style: textTheme.headlineMedium),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Memento', style: textTheme.headlineMedium),
+            const SizedBox(height: 8),
+            Text(
+              'Место, где мысли остаются навсегда.',
+              style: textTheme.bodyMedium,
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
       ),
     );
+  }
+}
+
+/// Loads a note's content, then hands it to a [MarkdownEditor] and
+/// autosaves edits after a short pause in typing.
+class _NoteEditorLoader extends StatefulWidget {
+  const _NoteEditorLoader({
+    super.key,
+    required this.repository,
+    required this.note,
+  });
+
+  final NoteRepository repository;
+  final NoteTreeNode note;
+
+  static const Duration autosaveDebounce = Duration(milliseconds: 500);
+
+  @override
+  State<_NoteEditorLoader> createState() => _NoteEditorLoaderState();
+}
+
+class _NoteEditorLoaderState extends State<_NoteEditorLoader> {
+  String? _content;
+  Timer? _autosaveTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_load());
+  }
+
+  Future<void> _load() async {
+    final String content = await widget.repository.readNote(widget.note.id);
+    if (mounted) setState(() => _content = content);
+  }
+
+  void _handleChanged(String value) {
+    _autosaveTimer?.cancel();
+    _autosaveTimer = Timer(_NoteEditorLoader.autosaveDebounce, () {
+      unawaited(widget.repository.writeNote(widget.note.id, value));
+    });
+  }
+
+  @override
+  void dispose() {
+    _autosaveTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final String? content = _content;
+    if (content == null) {
+      return const Center(
+        child: SizedBox(
+          width: 20,
+          height: 20,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      );
+    }
+    return MarkdownEditor(initialContent: content, onChanged: _handleChanged);
   }
 }

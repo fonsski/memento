@@ -1,9 +1,17 @@
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 
 import '../domain/note_repository.dart';
 import '../domain/note_tree_node.dart';
+
+/// The default vault: a `Memento` folder inside the platform's
+/// application-documents directory.
+Future<FileSystemNoteRepository> createDefaultNoteRepository() async {
+  final Directory documents = await getApplicationDocumentsDirectory();
+  return FileSystemNoteRepository(Directory(p.join(documents.path, 'Memento')));
+}
 
 /// Stores the vault as a plain directory tree on disk: folders are
 /// directories, notes are `.md` files, and a note's title is its file

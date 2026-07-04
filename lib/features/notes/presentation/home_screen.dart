@@ -1,13 +1,17 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/memento_colors.dart';
-import '../data/sample_note_tree.dart';
+import '../domain/note_repository.dart';
 import '../domain/note_tree_node.dart';
 import 'note_tree.dart';
 
 /// App shell: a fixed-width sidebar tree next to the main content area.
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  const HomeScreen({super.key, required this.repository});
+
+  final NoteRepository repository;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -16,7 +20,24 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   static const double _sidebarWidth = 260;
 
+  List<NoteTreeNode>? _tree;
+  Object? _loadError;
   NoteTreeNode? _selectedNote;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_loadTree());
+  }
+
+  Future<void> _loadTree() async {
+    try {
+      final List<NoteTreeNode> tree = await widget.repository.loadTree();
+      if (mounted) setState(() => _tree = tree);
+    } catch (error) {
+      if (mounted) setState(() => _loadError = error);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -32,16 +53,42 @@ class _HomeScreenState extends State<HomeScreen> {
               color: colors.navPanel,
               border: Border(right: BorderSide(color: theme.dividerColor)),
             ),
-            child: SafeArea(
-              child: NoteTree(
-                nodes: sampleNoteTree,
-                onNoteSelected: (node) => setState(() => _selectedNote = node),
-              ),
-            ),
+            child: SafeArea(child: _buildSidebarContent(theme)),
           ),
           Expanded(child: _ContentArea(selectedNote: _selectedNote)),
         ],
       ),
+    );
+  }
+
+  Widget _buildSidebarContent(ThemeData theme) {
+    if (_loadError != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Text(
+            'Не удалось загрузить заметки',
+            style: theme.textTheme.bodySmall,
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
+    }
+
+    final List<NoteTreeNode>? tree = _tree;
+    if (tree == null) {
+      return const Center(
+        child: SizedBox(
+          width: 20,
+          height: 20,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      );
+    }
+
+    return NoteTree(
+      nodes: tree,
+      onNoteSelected: (node) => setState(() => _selectedNote = node),
     );
   }
 }

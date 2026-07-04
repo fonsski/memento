@@ -74,7 +74,11 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           theme: AppTheme.dark,
-          home: HomeScreen(repository: repository),
+          home: HomeScreen(
+            repository: repository,
+            vaultPath: vaultRoot.path,
+            onChangeVault: (_) async {},
+          ),
         ),
       );
       await pumpUntil(tester, treeLoaded);
@@ -103,7 +107,11 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           theme: AppTheme.dark,
-          home: HomeScreen(repository: repository),
+          home: HomeScreen(
+            repository: repository,
+            vaultPath: vaultRoot.path,
+            onChangeVault: (_) async {},
+          ),
         ),
       );
       await pumpUntil(tester, treeLoaded);
@@ -130,7 +138,11 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           theme: AppTheme.dark,
-          home: HomeScreen(repository: repository),
+          home: HomeScreen(
+            repository: repository,
+            vaultPath: vaultRoot.path,
+            onChangeVault: (_) async {},
+          ),
         ),
       );
       await pumpUntil(tester, treeLoaded);
@@ -152,7 +164,11 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           theme: AppTheme.dark,
-          home: HomeScreen(repository: repository),
+          home: HomeScreen(
+            repository: repository,
+            vaultPath: vaultRoot.path,
+            onChangeVault: (_) async {},
+          ),
         ),
       );
       await pumpUntil(tester, treeLoaded);
@@ -193,7 +209,11 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           theme: AppTheme.dark,
-          home: HomeScreen(repository: repository),
+          home: HomeScreen(
+            repository: repository,
+            vaultPath: vaultRoot.path,
+            onChangeVault: (_) async {},
+          ),
         ),
       );
       await pumpUntil(tester, treeLoaded);
@@ -231,7 +251,11 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           theme: AppTheme.dark,
-          home: HomeScreen(repository: repository),
+          home: HomeScreen(
+            repository: repository,
+            vaultPath: vaultRoot.path,
+            onChangeVault: (_) async {},
+          ),
         ),
       );
       await pumpUntil(tester, treeLoaded);
@@ -269,7 +293,11 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           theme: AppTheme.dark,
-          home: HomeScreen(repository: repository),
+          home: HomeScreen(
+            repository: repository,
+            vaultPath: vaultRoot.path,
+            onChangeVault: (_) async {},
+          ),
         ),
       );
       await pumpUntil(tester, treeLoaded);
@@ -300,7 +328,11 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           theme: AppTheme.dark,
-          home: HomeScreen(repository: repository),
+          home: HomeScreen(
+            repository: repository,
+            vaultPath: vaultRoot.path,
+            onChangeVault: (_) async {},
+          ),
         ),
       );
       await pumpUntil(tester, treeLoaded);
@@ -334,7 +366,11 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           theme: AppTheme.dark,
-          home: HomeScreen(repository: repository),
+          home: HomeScreen(
+            repository: repository,
+            vaultPath: vaultRoot.path,
+            onChangeVault: (_) async {},
+          ),
         ),
       );
       await pumpUntil(tester, treeLoaded);
@@ -372,7 +408,11 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           theme: AppTheme.dark,
-          home: HomeScreen(repository: repository),
+          home: HomeScreen(
+            repository: repository,
+            vaultPath: vaultRoot.path,
+            onChangeVault: (_) async {},
+          ),
         ),
       );
       await pumpUntil(tester, treeLoaded);
@@ -402,7 +442,11 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           theme: AppTheme.dark,
-          home: HomeScreen(repository: repository),
+          home: HomeScreen(
+            repository: repository,
+            vaultPath: vaultRoot.path,
+            onChangeVault: (_) async {},
+          ),
         ),
       );
       await pumpUntil(tester, treeLoaded);
@@ -457,7 +501,11 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           theme: AppTheme.dark,
-          home: HomeScreen(repository: repository),
+          home: HomeScreen(
+            repository: repository,
+            vaultPath: vaultRoot.path,
+            onChangeVault: (_) async {},
+          ),
         ),
       );
       await pumpUntil(tester, treeLoaded);
@@ -501,7 +549,11 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           theme: AppTheme.dark,
-          home: HomeScreen(repository: repository),
+          home: HomeScreen(
+            repository: repository,
+            vaultPath: vaultRoot.path,
+            onChangeVault: (_) async {},
+          ),
         ),
       );
       await pumpUntil(tester, treeLoaded);
@@ -536,7 +588,11 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           theme: AppTheme.dark,
-          home: HomeScreen(repository: repository),
+          home: HomeScreen(
+            repository: repository,
+            vaultPath: vaultRoot.path,
+            onChangeVault: (_) async {},
+          ),
         ),
       );
       await pumpUntil(tester, treeLoaded);
@@ -565,7 +621,11 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           theme: AppTheme.dark,
-          home: HomeScreen(repository: repository),
+          home: HomeScreen(
+            repository: repository,
+            vaultPath: vaultRoot.path,
+            onChangeVault: (_) async {},
+          ),
         ),
       );
       await pumpUntil(tester, treeLoaded);
@@ -604,7 +664,11 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           theme: AppTheme.dark,
-          home: HomeScreen(repository: repository),
+          home: HomeScreen(
+            repository: repository,
+            vaultPath: vaultRoot.path,
+            onChangeVault: (_) async {},
+          ),
         ),
       );
       await pumpUntil(tester, treeLoaded);
@@ -632,5 +696,76 @@ void main() {
 
     expect(find.byType(GraphView), findsNothing);
     expect(find.byIcon(Icons.close), findsOneWidget);
+  });
+
+  testWidgets(
+    'the vault-picker dialog reports the entered path via onChangeVault',
+    (WidgetTester tester) async {
+      final FileSystemNoteRepository repository = FileSystemNoteRepository(
+        vaultRoot,
+      );
+      String? reportedPath;
+
+      await tester.runAsync(() async {
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.dark,
+            home: HomeScreen(
+              repository: repository,
+              vaultPath: vaultRoot.path,
+              onChangeVault: (path) async {
+                reportedPath = path;
+              },
+            ),
+          ),
+        );
+        await pumpUntil(tester, treeLoaded);
+      });
+      await tester.pump();
+
+      await tester.tap(find.byIcon(Icons.folder_open_outlined));
+      await tester.pumpAndSettle();
+
+      expect(find.text(vaultRoot.path), findsOneWidget);
+
+      await tester.enterText(find.byType(TextField), '/new/vault/path');
+      await tester.tap(find.text('Сохранить'));
+      await tester.pumpAndSettle();
+
+      expect(reportedPath, '/new/vault/path');
+    },
+  );
+
+  testWidgets('the vault-picker dialog does not report an unchanged path', (
+    WidgetTester tester,
+  ) async {
+    final FileSystemNoteRepository repository = FileSystemNoteRepository(
+      vaultRoot,
+    );
+    var called = false;
+
+    await tester.runAsync(() async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark,
+          home: HomeScreen(
+            repository: repository,
+            vaultPath: vaultRoot.path,
+            onChangeVault: (_) async {
+              called = true;
+            },
+          ),
+        ),
+      );
+      await pumpUntil(tester, treeLoaded);
+    });
+    await tester.pump();
+
+    await tester.tap(find.byIcon(Icons.folder_open_outlined));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Сохранить'));
+    await tester.pumpAndSettle();
+
+    expect(called, isFalse);
   });
 }

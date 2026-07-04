@@ -19,9 +19,21 @@ import 'search_palette.dart';
 /// App shell: a fixed-width sidebar tree next to open-note tabs and the
 /// main content area.
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key, required this.repository});
+  const HomeScreen({
+    super.key,
+    required this.repository,
+    required this.vaultPath,
+    required this.onChangeVault,
+  });
 
   final NoteRepository repository;
+
+  /// The vault's on-disk location, shown/edited in the vault-picker
+  /// dialog. Kept separate from [repository] so the repository can stay
+  /// an opaque [NoteRepository] everywhere else.
+  final String vaultPath;
+
+  final Future<void> Function(String newPath) onChangeVault;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -171,6 +183,16 @@ class _HomeScreenState extends State<HomeScreen> {
     if (selected != null) _openNote(selected);
   }
 
+  Future<void> _showVaultPicker() async {
+    final String? newPath = await promptForTitle(
+      context,
+      dialogTitle: 'Расположение хранилища',
+      initialValue: widget.vaultPath,
+    );
+    if (newPath == null || newPath == widget.vaultPath || !mounted) return;
+    await widget.onChangeVault(newPath);
+  }
+
   /// Runs a repository mutation, reloading the tree on success and
   /// surfacing a snackbar on failure (e.g. a duplicate title).
   Future<void> _runMutation(Future<void> Function() action) async {
@@ -217,6 +239,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         onSearch: _showSearch,
                         onNewNote: () => _createNote(''),
                         onNewFolder: () => _createFolder(''),
+                        onOpenVaultPicker: _showVaultPicker,
                       ),
                       Expanded(child: _buildTreeArea(theme)),
                     ],
@@ -308,6 +331,7 @@ class _SidebarHeader extends StatelessWidget {
     required this.onSearch,
     required this.onNewNote,
     required this.onNewFolder,
+    required this.onOpenVaultPicker,
   });
 
   final bool graphActive;
@@ -315,6 +339,7 @@ class _SidebarHeader extends StatelessWidget {
   final VoidCallback onSearch;
   final VoidCallback onNewNote;
   final VoidCallback onNewFolder;
+  final VoidCallback onOpenVaultPicker;
 
   @override
   Widget build(BuildContext context) {
@@ -347,6 +372,11 @@ class _SidebarHeader extends StatelessWidget {
             icon: const Icon(Icons.create_new_folder_outlined, size: 18),
             tooltip: 'Новая папка',
             onPressed: onNewFolder,
+          ),
+          IconButton(
+            icon: const Icon(Icons.folder_open_outlined, size: 18),
+            tooltip: 'Расположение хранилища',
+            onPressed: onOpenVaultPicker,
           ),
         ],
       ),

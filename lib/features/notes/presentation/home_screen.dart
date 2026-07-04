@@ -6,6 +6,8 @@ import '../../../core/theme/memento_colors.dart';
 import '../domain/note_repository.dart';
 import '../domain/note_tree_node.dart';
 import 'note_tree.dart';
+import 'note_tree_context_menu.dart';
+import 'note_tree_dialogs.dart';
 
 /// App shell: a fixed-width sidebar tree next to the main content area.
 class HomeScreen extends StatefulWidget {
@@ -39,6 +41,77 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Future<void> _handleNodeAction(NoteTreeNode node, NoteTreeAction action) {
+    switch (action) {
+      case NoteTreeAction.newNote:
+        return _createNote(node.id);
+      case NoteTreeAction.newFolder:
+        return _createFolder(node.id);
+      case NoteTreeAction.rename:
+        return _rename(node);
+      case NoteTreeAction.delete:
+        return _delete(node);
+    }
+  }
+
+  Future<void> _createNote(String parentPath) async {
+    final String? title = await promptForTitle(
+      context,
+      dialogTitle: 'Новая заметка',
+    );
+    if (title == null || !mounted) return;
+    await _runMutation(() => widget.repository.createNote(parentPath, title));
+  }
+
+  Future<void> _createFolder(String parentPath) async {
+    final String? title = await promptForTitle(
+      context,
+      dialogTitle: 'Новая папка',
+    );
+    if (title == null || !mounted) return;
+    await _runMutation(() => widget.repository.createFolder(parentPath, title));
+  }
+
+  Future<void> _rename(NoteTreeNode node) async {
+    final String? title = await promptForTitle(
+      context,
+      dialogTitle: 'Переименовать',
+      initialValue: node.title,
+    );
+    if (title == null || title == node.title || !mounted) return;
+    await _runMutation(() async {
+      final String newPath = await widget.repository.rename(node.id, title);
+      if (_selectedNote?.id == node.id && mounted) {
+        setState(() => _selectedNote = NoteTreeNode(id: newPath, title: title));
+      }
+    });
+  }
+
+  Future<void> _delete(NoteTreeNode node) async {
+    final bool confirmed = await confirmDelete(context, node.title);
+    if (!confirmed || !mounted) return;
+    await _runMutation(() async {
+      await widget.repository.delete(node.id);
+      if (_selectedNote?.id == node.id && mounted) {
+        setState(() => _selectedNote = null);
+      }
+    });
+  }
+
+  /// Runs a repository mutation, reloading the tree on success and
+  /// surfacing a snackbar on failure (e.g. a duplicate title).
+  Future<void> _runMutation(Future<void> Function() action) async {
+    try {
+      await action();
+      await _loadTree();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Не удалось выполнить: $error')));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
@@ -53,7 +126,17 @@ class _HomeScreenState extends State<HomeScreen> {
               color: colors.navPanel,
               border: Border(right: BorderSide(color: theme.dividerColor)),
             ),
-            child: SafeArea(child: _buildSidebarContent(theme)),
+            child: SafeArea(
+              child: Column(
+                children: [
+                  _SidebarHeader(
+                    onNewNote: () => _createNote(''),
+                    onNewFolder: () => _createFolder(''),
+                  ),
+                  Expanded(child: _buildTreeArea(theme)),
+                ],
+              ),
+            ),
           ),
           Expanded(child: _ContentArea(selectedNote: _selectedNote)),
         ],
@@ -61,7 +144,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildSidebarContent(ThemeData theme) {
+  Widget _buildTreeArea(ThemeData theme) {
     if (_loadError != null) {
       return Center(
         child: Padding(
@@ -89,6 +172,36 @@ class _HomeScreenState extends State<HomeScreen> {
     return NoteTree(
       nodes: tree,
       onNoteSelected: (node) => setState(() => _selectedNote = node),
+      onNodeAction: _handleNodeAction,
+    );
+  }
+}
+
+class _SidebarHeader extends StatelessWidget {
+  const _SidebarHeader({required this.onNewNote, required this.onNewFolder});
+
+  final VoidCallback onNewNote;
+  final VoidCallback onNewFolder;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          IconButton(
+            icon: const Icon(Icons.note_add_outlined, size: 18),
+            tooltip: 'Новая заметка',
+            onPressed: onNewNote,
+          ),
+          IconButton(
+            icon: const Icon(Icons.create_new_folder_outlined, size: 18),
+            tooltip: 'Новая папка',
+            onPressed: onNewFolder,
+          ),
+        ],
+      ),
     );
   }
 }

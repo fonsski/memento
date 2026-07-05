@@ -4,6 +4,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import 'core/theme/app_theme.dart';
+import 'core/theme/custom_theme.dart';
+import 'core/theme/custom_theme_repository.dart';
+import 'core/theme/theme_settings.dart';
 import 'features/notes/data/file_system_note_repository.dart';
 import 'features/notes/data/vault_settings.dart';
 import 'features/notes/domain/note_repository.dart';
@@ -17,13 +20,45 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final FileSystemNoteRepository repository =
       await createDefaultNoteRepository();
-  runApp(MementoApp(repository: repository));
+  final (String? themeId, CustomThemeDefinition? theme) =
+      await _loadSelectedTheme();
+  runApp(
+    MementoApp(
+      repository: repository,
+      initialThemeId: themeId,
+      initialTheme: theme,
+    ),
+  );
+}
+
+/// Reads the previously selected theme id and, if it's a custom theme,
+/// loads its definition. Falls back to the built-in theme (both `null`)
+/// if nothing's been selected, or if the selected theme's file no
+/// longer exists.
+Future<(String?, CustomThemeDefinition?)> _loadSelectedTheme() async {
+  final ThemeSettings settings = await ThemeSettings.create();
+  final String? id = await settings.readThemeId();
+  if (id == null) return (null, null);
+
+  final CustomThemeRepository themeRepository =
+      await CustomThemeRepository.create();
+  final Map<String, CustomThemeDefinition> themes = await themeRepository
+      .loadAll();
+  final CustomThemeDefinition? theme = themes[id];
+  return theme == null ? (null, null) : (id, theme);
 }
 
 class MementoApp extends StatefulWidget {
-  const MementoApp({super.key, required this.repository});
+  const MementoApp({
+    super.key,
+    required this.repository,
+    this.initialThemeId,
+    this.initialTheme,
+  });
 
   final FileSystemNoteRepository repository;
+  final String? initialThemeId;
+  final CustomThemeDefinition? initialTheme;
 
   @override
   State<MementoApp> createState() => _MementoAppState();
@@ -32,6 +67,8 @@ class MementoApp extends StatefulWidget {
 class _MementoAppState extends State<MementoApp> {
   late NoteRepository _repository = widget.repository;
   late String _vaultPath = widget.repository.vaultRoot.path;
+  late String? _themeId = widget.initialThemeId;
+  late CustomThemeDefinition? _customTheme = widget.initialTheme;
   SyncCoordinator? _syncCoordinator;
   DeviceIdentity? _identity;
   PairingStore? _pairingStore;
@@ -94,6 +131,16 @@ class _MementoAppState extends State<MementoApp> {
     await _setUpSync(newRepository);
   }
 
+  Future<void> _changeTheme(String? id, CustomThemeDefinition? theme) async {
+    final ThemeSettings settings = await ThemeSettings.create();
+    await settings.writeThemeId(id);
+    if (!mounted) return;
+    setState(() {
+      _themeId = id;
+      _customTheme = theme;
+    });
+  }
+
   @override
   void dispose() {
     unawaited(_syncCoordinator?.dispose());
@@ -102,10 +149,15 @@ class _MementoAppState extends State<MementoApp> {
 
   @override
   Widget build(BuildContext context) {
+    final CustomThemeDefinition? custom = _customTheme;
     return MaterialApp(
       title: 'Memento',
-      theme: AppTheme.light,
-      darkTheme: AppTheme.dark,
+      theme: custom == null
+          ? AppTheme.light
+          : AppTheme.buildLight(custom.light),
+      darkTheme: custom == null
+          ? AppTheme.dark
+          : AppTheme.buildDark(custom.dark),
       themeMode: ThemeMode.system,
       // Keyed by the vault path so switching vaults remounts HomeScreen
       // fresh (new tree, no leftover tabs from the previous vault).
@@ -115,6 +167,8 @@ class _MementoAppState extends State<MementoApp> {
         vaultPath: _vaultPath,
         onChangeVault: _changeVault,
         syncCoordinator: _syncCoordinator,
+        currentThemeId: _themeId,
+        onChangeTheme: _changeTheme,
       ),
     );
   }

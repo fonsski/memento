@@ -3,7 +3,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../core/theme/custom_theme.dart';
 import '../../../core/theme/memento_colors.dart';
+import '../../../core/theme/theme_picker_dialog.dart';
 import '../../sync/data/sync_coordinator.dart';
 import '../../sync/presentation/sync_panel.dart';
 import '../domain/note_graph.dart';
@@ -27,6 +29,8 @@ class HomeScreen extends StatefulWidget {
     required this.vaultPath,
     required this.onChangeVault,
     this.syncCoordinator,
+    this.currentThemeId,
+    this.onChangeTheme,
   });
 
   final NoteRepository repository;
@@ -42,6 +46,16 @@ class HomeScreen extends StatefulWidget {
   /// store load asynchronously); the sync button is disabled until
   /// then.
   final SyncCoordinator? syncCoordinator;
+
+  /// Id of the currently selected custom theme, or `null` for the
+  /// built-in theme — shown as the current selection in the theme
+  /// picker.
+  final String? currentThemeId;
+
+  /// Null disables the theme picker button, the same way a null
+  /// [syncCoordinator] disables the sync one.
+  final Future<void> Function(String? themeId, CustomThemeDefinition? theme)?
+  onChangeTheme;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -205,6 +219,15 @@ class _HomeScreenState extends State<HomeScreen> {
     await widget.onChangeVault(newPath);
   }
 
+  Future<void> _showThemePicker() async {
+    final (String?, CustomThemeDefinition?)? result = await showThemePicker(
+      context,
+      currentThemeId: widget.currentThemeId,
+    );
+    if (result == null || !mounted) return;
+    await widget.onChangeTheme?.call(result.$1, result.$2);
+  }
+
   /// Runs a repository mutation, reloading the tree on success and
   /// surfacing a snackbar on failure (e.g. a duplicate title).
   Future<void> _runMutation(Future<void> Function() action) async {
@@ -252,6 +275,9 @@ class _HomeScreenState extends State<HomeScreen> {
                         onNewNote: () => _createNote(''),
                         onNewFolder: () => _createFolder(''),
                         onOpenVaultPicker: _showVaultPicker,
+                        onOpenThemePicker: widget.onChangeTheme == null
+                            ? null
+                            : _showThemePicker,
                         onOpenSync: widget.syncCoordinator == null
                             ? null
                             : () => showSyncPanel(
@@ -350,6 +376,7 @@ class _SidebarHeader extends StatelessWidget {
     required this.onNewNote,
     required this.onNewFolder,
     required this.onOpenVaultPicker,
+    required this.onOpenThemePicker,
     required this.onOpenSync,
   });
 
@@ -360,10 +387,13 @@ class _SidebarHeader extends StatelessWidget {
   final VoidCallback onNewFolder;
   final VoidCallback onOpenVaultPicker;
 
+  /// Null until the theme system is ready; the button is disabled then.
+  final VoidCallback? onOpenThemePicker;
+
   /// Null while sync is still starting up; the button is disabled then.
   final VoidCallback? onOpenSync;
 
-  // Five icons need to fit in a 260px sidebar; the default IconButton
+  // Six icons need to fit in a 260px sidebar; the default IconButton
   // enforces a 48x48 minimum tap target regardless of icon size, which
   // overflows at that count. Shrink the tap target instead.
   static const ButtonStyle _compactButtonStyle = ButtonStyle(
@@ -413,6 +443,12 @@ class _SidebarHeader extends StatelessWidget {
             icon: const Icon(Icons.folder_open_outlined, size: 18),
             tooltip: 'Расположение хранилища',
             onPressed: onOpenVaultPicker,
+          ),
+          IconButton(
+            style: _compactButtonStyle,
+            icon: const Icon(Icons.palette_outlined, size: 18),
+            tooltip: 'Тема оформления',
+            onPressed: onOpenThemePicker,
           ),
           IconButton(
             style: _compactButtonStyle,

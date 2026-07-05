@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:memento/core/theme/app_theme.dart';
+import 'package:memento/core/theme/custom_theme.dart';
 import 'package:memento/features/notes/data/file_system_note_repository.dart';
 import 'package:memento/features/notes/presentation/graph_view.dart';
 import 'package:memento/features/notes/presentation/home_screen.dart';
@@ -847,4 +848,68 @@ void main() {
     expect(find.byType(GraphView), findsNothing);
     expect(find.text('Место, где мысли остаются навсегда.'), findsOneWidget);
   });
+
+  testWidgets('the theme picker button is disabled without onChangeTheme', (
+    WidgetTester tester,
+  ) async {
+    final FileSystemNoteRepository repository = FileSystemNoteRepository(
+      vaultRoot,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: HomeScreen(
+          repository: repository,
+          vaultPath: vaultRoot.path,
+          onChangeVault: (_) async {},
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final IconButton button = tester.widget(
+      find.widgetWithIcon(IconButton, Icons.palette_outlined),
+    );
+    expect(button.onPressed, isNull);
+  });
+
+  testWidgets(
+    'choosing the built-in theme in the picker calls onChangeTheme(null, null)',
+    (WidgetTester tester) async {
+      final FileSystemNoteRepository repository = FileSystemNoteRepository(
+        vaultRoot,
+      );
+      (String?, CustomThemeDefinition?)? reported;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark,
+          home: HomeScreen(
+            repository: repository,
+            vaultPath: vaultRoot.path,
+            onChangeVault: (_) async {},
+            currentThemeId: null,
+            onChangeTheme: (id, theme) async {
+              reported = (id, theme);
+            },
+          ),
+        ),
+      );
+      await tester.pump();
+
+      await tester.runAsync(() async {
+        await tester.tap(find.byIcon(Icons.palette_outlined));
+        await pumpUntil(
+          tester,
+          () => find.text('Встроенная (Ink & Patina)').evaluate().isNotEmpty,
+        );
+        await tester.tap(find.text('Встроенная (Ink & Patina)'));
+        await pumpUntil(tester, () => reported != null);
+      });
+      await tester.pump();
+
+      expect(reported, (null, null));
+    },
+  );
 }

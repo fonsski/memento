@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:memento/core/theme/app_theme.dart';
 import 'package:memento/features/notes/presentation/markdown_editor.dart';
@@ -109,4 +110,136 @@ void main() {
       expect(decoration.focusedBorder, InputBorder.none);
     },
   );
+
+  group('slash command menu', () {
+    testWidgets('typing "/" plus a query shows matching commands', (
+      WidgetTester tester,
+    ) async {
+      await tester.pumpWidget(
+        wrap(MarkdownEditor(initialContent: '', onChanged: (_) {})),
+      );
+
+      await tester.enterText(find.byType(TextField), '/tab');
+      await tester.pump();
+
+      expect(find.text('Таблица'), findsOneWidget);
+      expect(find.text('Заголовок 1'), findsNothing);
+    });
+
+    testWidgets('shows a "not found" placeholder for an unmatched query', (
+      WidgetTester tester,
+    ) async {
+      await tester.pumpWidget(
+        wrap(MarkdownEditor(initialContent: '', onChanged: (_) {})),
+      );
+
+      await tester.enterText(find.byType(TextField), '/zzz');
+      await tester.pump();
+
+      expect(find.text('Ничего не найдено'), findsOneWidget);
+    });
+
+    testWidgets('tapping a command replaces the trigger with its snippet', (
+      WidgetTester tester,
+    ) async {
+      String? latest;
+      await tester.pumpWidget(
+        wrap(
+          MarkdownEditor(
+            initialContent: '',
+            onChanged: (value) => latest = value,
+          ),
+        ),
+      );
+
+      await tester.enterText(find.byType(TextField), '/h2');
+      await tester.pump();
+      await tester.tap(find.text('Заголовок 2'));
+      await tester.pump();
+
+      expect(latest, '## ');
+      expect(find.text('Ничего не найдено'), findsNothing);
+      expect(find.text('Таблица'), findsNothing);
+    });
+
+    testWidgets('Enter applies the highlighted command', (
+      WidgetTester tester,
+    ) async {
+      String? latest;
+      await tester.pumpWidget(
+        wrap(
+          MarkdownEditor(
+            initialContent: '',
+            onChanged: (value) => latest = value,
+          ),
+        ),
+      );
+
+      await tester.enterText(find.byType(TextField), '/table');
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pump();
+
+      expect(latest, contains('| Колонка 1 | Колонка 2 |'));
+    });
+
+    testWidgets('Escape closes the menu without changing the text', (
+      WidgetTester tester,
+    ) async {
+      String? latest;
+      await tester.pumpWidget(
+        wrap(
+          MarkdownEditor(
+            initialContent: '',
+            onChanged: (value) => latest = value,
+          ),
+        ),
+      );
+
+      await tester.enterText(find.byType(TextField), '/tab');
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pump();
+
+      expect(find.text('Таблица'), findsNothing);
+      expect(latest, '/tab');
+    });
+
+    testWidgets('hides the drawing command when onInsertDrawing is null', (
+      WidgetTester tester,
+    ) async {
+      await tester.pumpWidget(
+        wrap(MarkdownEditor(initialContent: '', onChanged: (_) {})),
+      );
+
+      await tester.enterText(find.byType(TextField), '/рисун');
+      await tester.pump();
+
+      expect(find.text('Холст для рисования'), findsNothing);
+      expect(find.text('Ничего не найдено'), findsOneWidget);
+    });
+
+    testWidgets(
+      'shows and applies the drawing command when onInsertDrawing is set',
+      (WidgetTester tester) async {
+        String? latest;
+        await tester.pumpWidget(
+          wrap(
+            MarkdownEditor(
+              initialContent: '',
+              onChanged: (value) => latest = value,
+              onInsertDrawing: () async => '![Рисунок](attachments/a.png)',
+            ),
+          ),
+        );
+
+        await tester.enterText(find.byType(TextField), '/рисун');
+        await tester.pump();
+        await tester.tap(find.text('Холст для рисования'));
+        await tester.pumpAndSettle();
+
+        expect(latest, '![Рисунок](attachments/a.png)');
+      },
+    );
+  });
 }

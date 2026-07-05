@@ -13,7 +13,12 @@ class MarkdownSyntaxController extends TextEditingController {
   /// Opacity applied to the base text color for dimmed markers, so they
   /// stay legible (this is still Markdown, not hidden) without competing
   /// with actual content.
-  static const double markerOpacity = 0.4;
+  static const double markerOpacity = 0.28;
+
+  /// Markers are also shrunk slightly relative to the surrounding text,
+  /// on top of the opacity drop, so they read as quiet punctuation rather
+  /// than content competing for attention.
+  static const double markerFontScale = 0.85;
 
   @override
   TextSpan buildTextSpan({
@@ -40,7 +45,8 @@ class MarkdownSyntaxController extends TextEditingController {
     switch (kind) {
       case MarkdownSpanKind.marker:
       case MarkdownSpanKind.listMarker:
-        return AppEditorTextStyles.body(dimColor);
+        final TextStyle base = AppEditorTextStyles.body(dimColor);
+        return base.copyWith(fontSize: base.fontSize! * markerFontScale);
       case MarkdownSpanKind.heading1:
         return AppEditorTextStyles.heading1(color);
       case MarkdownSpanKind.heading2:

@@ -36,21 +36,38 @@ void main() {
     expect(latest, 'новый текст');
   });
 
-  testWidgets('constrains the editor to the book-width column', (
+  double editorColumnWidth(WidgetTester tester) {
+    final ConstrainedBox box = tester
+        .widgetList<ConstrainedBox>(find.byType(ConstrainedBox))
+        .firstWhere((box) => box.constraints.maxWidth.isFinite);
+    return box.constraints.maxWidth;
+  }
+
+  testWidgets('caps the editor column at maxWidth on a wide window', (
     WidgetTester tester,
   ) async {
+    await tester.binding.setSurfaceSize(const Size(2000, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
     await tester.pumpWidget(
       wrap(MarkdownEditor(initialContent: '', onChanged: (_) {})),
     );
 
-    expect(
-      find.byWidgetPredicate(
-        (widget) =>
-            widget is ConstrainedBox &&
-            widget.constraints.maxWidth == MarkdownEditor.maxWidth,
-      ),
-      findsOneWidget,
+    expect(editorColumnWidth(tester), MarkdownEditor.maxWidth);
+  });
+
+  testWidgets('uses most of the available width on a narrow window', (
+    WidgetTester tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(500, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      wrap(MarkdownEditor(initialContent: '', onChanged: (_) {})),
     );
+
+    expect(editorColumnWidth(tester), lessThan(MarkdownEditor.maxWidth));
+    expect(editorColumnWidth(tester), greaterThan(400));
   });
 
   testWidgets('uses the editor (serif) text style, not the UI font', (

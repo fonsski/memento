@@ -768,4 +768,83 @@ void main() {
 
     expect(called, isFalse);
   });
+
+  testWidgets(
+    'clicking a tree note while the graph is open switches back to it',
+    (WidgetTester tester) async {
+      final FileSystemNoteRepository repository = FileSystemNoteRepository(
+        vaultRoot,
+      );
+
+      await tester.runAsync(() async {
+        await repository.createNote('', 'Заметка А');
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.dark,
+            home: HomeScreen(
+              repository: repository,
+              vaultPath: vaultRoot.path,
+              onChangeVault: (_) async {},
+            ),
+          ),
+        );
+        await pumpUntil(tester, treeLoaded);
+
+        await tester.tap(find.byIcon(Icons.hub_outlined));
+        await pumpUntil(
+          tester,
+          () => find.byType(CircularProgressIndicator).evaluate().isEmpty,
+        );
+        expect(find.byType(GraphView), findsOneWidget);
+
+        await tester.tap(
+          find.descendant(
+            of: find.byType(NoteTree),
+            matching: find.text('Заметка А'),
+          ),
+        );
+        await pumpUntil(tester, treeLoaded);
+      });
+      await tester.pump();
+
+      expect(find.byType(GraphView), findsNothing);
+      expect(tabBarText('Заметка А'), findsOneWidget);
+    },
+  );
+
+  testWidgets('clicking the graph icon again while it is open closes it', (
+    WidgetTester tester,
+  ) async {
+    final FileSystemNoteRepository repository = FileSystemNoteRepository(
+      vaultRoot,
+    );
+
+    await tester.runAsync(() async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark,
+          home: HomeScreen(
+            repository: repository,
+            vaultPath: vaultRoot.path,
+            onChangeVault: (_) async {},
+          ),
+        ),
+      );
+      await pumpUntil(tester, treeLoaded);
+
+      await tester.tap(find.byIcon(Icons.hub_outlined));
+      await pumpUntil(
+        tester,
+        () => find.byType(CircularProgressIndicator).evaluate().isEmpty,
+      );
+      expect(find.byType(GraphView), findsOneWidget);
+
+      await tester.tap(find.byIcon(Icons.hub_outlined));
+      await tester.pump();
+    });
+    await tester.pump();
+
+    expect(find.byType(GraphView), findsNothing);
+    expect(find.text('Место, где мысли остаются навсегда.'), findsOneWidget);
+  });
 }

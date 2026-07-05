@@ -74,6 +74,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _openNote(NoteTreeNode note) {
     setState(() {
+      // Opening a note (from the tree, search, or the graph) always shows
+      // the editor — otherwise, e.g. clicking a tree note while the graph
+      // is open would silently queue up a tab behind the graph view with
+      // no visible way back to it.
+      _showGraph = false;
       if (!_openNotes.any((n) => n.id == note.id)) {
         _openNotes = [..._openNotes, note];
       }
@@ -177,7 +182,6 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _handleGraphNodeTap(GraphNode node) {
-    setState(() => _showGraph = false);
     _openNote(NoteTreeNode(id: node.id, title: node.title));
   }
 

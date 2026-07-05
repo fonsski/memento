@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'note_tree_node.dart';
 
 /// Persists and reads the notes vault. Every node is addressed by its
@@ -30,4 +32,13 @@ abstract class NoteRepository {
   /// Deletes the note or folder at [path] (folders are removed with all
   /// of their contents).
   Future<void> delete(String path);
+
+  /// Saves [bytes] as a new attachment (e.g. a rasterized drawing) in a
+  /// shared vault-root `attachments/` folder — vault-root-relative
+  /// paths (rather than relative to each note) match how tools like
+  /// Obsidian resolve attachment links, and sidestep computing a
+  /// relative path from a possibly-nested note back to a shared folder.
+  /// Returns the vault-relative path to embed in Markdown (e.g.
+  /// `attachments/1700000000000-4213.png`).
+  Future<String> saveAttachment(Uint8List bytes, {String extension = 'png'});
 }

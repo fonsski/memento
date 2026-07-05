@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:memento/features/notes/data/file_system_note_repository.dart';
@@ -156,5 +157,39 @@ void main() {
     await repository.delete('Папка');
 
     expect(Directory(p.join(vaultRoot.path, 'Папка')).existsSync(), isFalse);
+  });
+
+  group('saveAttachment', () {
+    test('writes the bytes under a vault-root attachments/ folder', () async {
+      final Uint8List bytes = Uint8List.fromList([1, 2, 3, 4]);
+
+      final String path = await repository.saveAttachment(bytes);
+
+      expect(path, startsWith('attachments/'));
+      expect(path, endsWith('.png'));
+      final File file = File(p.join(vaultRoot.path, path));
+      expect(file.existsSync(), isTrue);
+      expect(file.readAsBytesSync(), bytes);
+    });
+
+    test('uses the given extension', () async {
+      final String path = await repository.saveAttachment(
+        Uint8List.fromList([1]),
+        extension: 'jpg',
+      );
+
+      expect(path, endsWith('.jpg'));
+    });
+
+    test('gives each attachment a distinct file name', () async {
+      final String first = await repository.saveAttachment(
+        Uint8List.fromList([1]),
+      );
+      final String second = await repository.saveAttachment(
+        Uint8List.fromList([2]),
+      );
+
+      expect(first, isNot(second));
+    });
   });
 }

@@ -1,4 +1,6 @@
 import 'dart:io';
+import 'dart:math';
+import 'dart:typed_data';
 
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -152,5 +154,23 @@ class FileSystemNoteRepository implements NoteRepository {
   String _parentPath(String path) {
     final String dir = p.posix.dirname(path);
     return dir == '.' ? '' : dir;
+  }
+
+  static final Random _random = Random();
+
+  @override
+  Future<String> saveAttachment(
+    Uint8List bytes, {
+    String extension = 'png',
+  }) async {
+    final Directory attachmentsDir = Directory(
+      p.join(vaultRoot.path, 'attachments'),
+    );
+    await attachmentsDir.create(recursive: true);
+
+    final String fileName =
+        '${DateTime.now().millisecondsSinceEpoch}-${_random.nextInt(1 << 32)}.$extension';
+    await File(p.join(attachmentsDir.path, fileName)).writeAsBytes(bytes);
+    return 'attachments/$fileName';
   }
 }

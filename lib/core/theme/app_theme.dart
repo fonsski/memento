@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import 'app_colors.dart';
 import 'app_typography.dart';
+import 'custom_theme.dart';
 import 'memento_colors.dart';
 
 /// Corner radius scale used across the app: small controls, cards/inputs,
@@ -14,53 +14,45 @@ class AppRadius {
   static const double large = 12;
 }
 
-/// Assembles the light and dark [ThemeData] from the raw color and
-/// typography tokens. Flat by default: borders (hairlines) separate
-/// content, shadows are reserved for floating surfaces only.
+/// Assembles the light and dark [ThemeData] from a [CustomThemeColorSet]
+/// plus the typography tokens. Flat by default: borders (hairlines)
+/// separate content, shadows are reserved for floating surfaces only.
+///
+/// [dark]/[light] are the built-in palette; [buildDark]/[buildLight] take
+/// an explicit [CustomThemeColorSet] (e.g. parsed from a user theme file)
+/// for everything else.
 class AppTheme {
   const AppTheme._();
 
-  static ThemeData get dark => _build(
-    brightness: Brightness.dark,
-    background: MementoDarkColors.backgroundPrimary,
-    surface: MementoDarkColors.card,
-    divider: MementoDarkColors.divider,
-    textPrimary: MementoDarkColors.textPrimary,
-    textSecondary: MementoDarkColors.textSecondary,
-    accent: MementoDarkColors.accent,
-    onAccent: MementoDarkColors.onAccent,
-    error: MementoDarkColors.error,
-    hoverOverlay: MementoDarkColors.hoverOverlay,
-    mementoColors: MementoColors.dark(),
-  );
+  static ThemeData get dark =>
+      buildDark(CustomThemeColorSet.defaultsFor(Brightness.dark));
 
-  static ThemeData get light => _build(
-    brightness: Brightness.light,
-    background: MementoLightColors.backgroundPrimary,
-    surface: MementoLightColors.card,
-    divider: MementoLightColors.divider,
-    textPrimary: MementoLightColors.textPrimary,
-    textSecondary: MementoLightColors.textSecondary,
-    accent: MementoLightColors.accent,
-    onAccent: MementoLightColors.onAccent,
-    error: MementoLightColors.error,
-    hoverOverlay: MementoLightColors.hoverOverlay,
-    mementoColors: MementoColors.light(),
-  );
+  static ThemeData get light =>
+      buildLight(CustomThemeColorSet.defaultsFor(Brightness.light));
+
+  static ThemeData buildDark(CustomThemeColorSet colors) =>
+      _build(brightness: Brightness.dark, colors: colors);
+
+  static ThemeData buildLight(CustomThemeColorSet colors) =>
+      _build(brightness: Brightness.light, colors: colors);
 
   static ThemeData _build({
     required Brightness brightness,
-    required Color background,
-    required Color surface,
-    required Color divider,
-    required Color textPrimary,
-    required Color textSecondary,
-    required Color accent,
-    required Color onAccent,
-    required Color error,
-    required Color hoverOverlay,
-    required MementoColors mementoColors,
+    required CustomThemeColorSet colors,
   }) {
+    final Color background = colors.backgroundPrimary;
+    final Color surface = colors.card;
+    final Color divider = colors.divider;
+    final Color textPrimary = colors.textPrimary;
+    final Color textSecondary = colors.textSecondary;
+    final Color accent = colors.accent;
+    final Color onAccent = colors.onAccent;
+    final Color error = colors.error;
+    final MementoColors mementoColors = MementoColors.fromColorSet(
+      colors,
+      brightness,
+    );
+
     final ColorScheme colorScheme = ColorScheme(
       brightness: brightness,
       primary: accent,
@@ -95,7 +87,7 @@ class AppTheme {
       // hard enough to freeze the whole desktop compositor, not just this
       // app. InkRipple needs no custom shader and is the safe choice here.
       splashFactory: InkRipple.splashFactory,
-      hoverColor: hoverOverlay,
+      hoverColor: mementoColors.hoverOverlay,
       extensions: [mementoColors],
       dividerTheme: DividerThemeData(color: divider, thickness: 1, space: 1),
       cardTheme: CardThemeData(

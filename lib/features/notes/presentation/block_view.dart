@@ -199,7 +199,7 @@ class _DeleteButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return IconButton(
-      icon: const Icon(Icons.close, size: 14),
+      icon: const Icon(Icons.delete_outline, size: 14),
       tooltip: 'Удалить блок',
       onPressed: onDelete,
       style: const ButtonStyle(

@@ -50,7 +50,7 @@ void main() {
 
     expect(find.byType(Divider), findsOneWidget);
 
-    await tester.tap(find.byIcon(Icons.close).first);
+    await tester.tap(find.byIcon(Icons.delete_outline).first);
     await tester.pump();
 
     expect(find.byType(Divider), findsNothing);

@@ -12,8 +12,9 @@ import '../domain/note_graph.dart';
 import '../domain/note_repository.dart';
 import '../domain/note_search.dart';
 import '../domain/note_tree_node.dart';
+import 'block_editor.dart';
+import 'drawing_canvas.dart';
 import 'graph_view.dart';
-import 'markdown_editor.dart';
 import 'note_tab_bar.dart';
 import 'note_tree.dart';
 import 'note_tree_context_menu.dart';
@@ -526,7 +527,7 @@ class _EmptyArchiveMessage extends StatelessWidget {
   }
 }
 
-/// Loads a note's content, then hands it to a [MarkdownEditor] and
+/// Loads a note's content, then hands it to a [BlockEditor] and
 /// autosaves edits after a short pause in typing.
 class _NoteEditorLoader extends StatefulWidget {
   const _NoteEditorLoader({
@@ -584,6 +585,11 @@ class _NoteEditorLoaderState extends State<_NoteEditorLoader> {
         ),
       );
     }
-    return MarkdownEditor(initialContent: content, onChanged: _handleChanged);
+    return BlockEditor(
+      initialContent: content,
+      onChanged: _handleChanged,
+      onRequestDrawing: () =>
+          showDrawingCanvasDialog(context, widget.repository),
+    );
   }
 }

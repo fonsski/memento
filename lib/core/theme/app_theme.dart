@@ -90,7 +90,11 @@ class AppTheme {
       canvasColor: background,
       dividerColor: divider,
       textTheme: textTheme,
-      splashFactory: InkSparkle.splashFactory,
+      // InkSparkle uses a custom fragment shader; on some Linux Mesa Intel
+      // iGPU drivers that has been known to wedge the GPU command queue
+      // hard enough to freeze the whole desktop compositor, not just this
+      // app. InkRipple needs no custom shader and is the safe choice here.
+      splashFactory: InkRipple.splashFactory,
       hoverColor: hoverOverlay,
       extensions: [mementoColors],
       dividerTheme: DividerThemeData(color: divider, thickness: 1, space: 1),

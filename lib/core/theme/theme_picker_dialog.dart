@@ -30,6 +30,7 @@ class _ThemePickerDialog extends StatefulWidget {
 
 class _ThemePickerDialogState extends State<_ThemePickerDialog> {
   Map<String, CustomThemeDefinition>? _themes;
+  String? _themesFolderPath;
   Object? _error;
 
   @override
@@ -44,7 +45,12 @@ class _ThemePickerDialogState extends State<_ThemePickerDialog> {
           await CustomThemeRepository.create();
       final Map<String, CustomThemeDefinition> themes = await repository
           .loadAll();
-      if (mounted) setState(() => _themes = themes);
+      if (mounted) {
+        setState(() {
+          _themes = themes;
+          _themesFolderPath = repository.themesDirectory.path;
+        });
+      }
     } catch (error) {
       if (mounted) setState(() => _error = error);
     }
@@ -58,7 +64,30 @@ class _ThemePickerDialogState extends State<_ThemePickerDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       title: const Text('Тема оформления'),
-      content: SizedBox(width: 360, height: 320, child: _buildContent()),
+      content: SizedBox(
+        width: 360,
+        height: 360,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: _buildContent()),
+            if (_themesFolderPath != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                'Свои темы (.json) кладите сюда:',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              SelectableText(
+                _themesFolderPath!,
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(fontFamily: 'JetBrains Mono'),
+              ),
+            ],
+          ],
+        ),
+      ),
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),

@@ -1,0 +1,37 @@
+{
+  "name": "Океан",
+  "dark": {
+    "backgroundPrimary": "#0A0F14",
+    "backgroundSecondary": "#111A22",
+    "navPanel": "#0D141A",
+    "card": "#16212B",
+    "divider": "#22323F",
+    "textPrimary": "#E7EEF2",
+    "textSecondary": "#9AAAB6",
+    "textDisabled": "#546472",
+    "link": "#5FB3B3",
+    "accent": "#2E86AB",
+    "onAccent": "#0A0F14",
+    "error": "#C1554A",
+    "warning": "#D6A23C",
+    "success": "#4F9B7C",
+    "info": "#6D9BC3"
+  },
+  "light": {
+    "backgroundPrimary": "#F3F8FA",
+    "backgroundSecondary": "#E7EFF3",
+    "navPanel": "#EAF1F4",
+    "card": "#FFFFFF",
+    "divider": "#D6E2E7",
+    "textPrimary": "#132025",
+    "textSecondary": "#4C5F68",
+    "textDisabled": "#93A4AB",
+    "link": "#3E7A7A",
+    "accent": "#1B4F72",
+    "onAccent": "#F3F8FA",
+    "error": "#A8392F",
+    "warning": "#B5822A",
+    "success": "#3E7A5C",
+    "info": "#4E6F94"
+  }
+}

@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:memento/core/theme/app_colors.dart';
@@ -94,5 +97,28 @@ void main() {
       expect(theme.dark.accent, MementoDarkColors.accent);
       expect(theme.light.accent, MementoLightColors.accent);
     });
+  });
+
+  test('docs/example-theme.json parses as a fully-specified theme', () {
+    final File file = File('docs/example-theme.json');
+    final Map<String, dynamic> json =
+        jsonDecode(file.readAsStringSync()) as Map<String, dynamic>;
+
+    final CustomThemeDefinition theme = CustomThemeDefinition.fromJson(json);
+
+    expect(theme.name, 'Океан');
+    // Every field should come from the file, not fall back to a built-in
+    // default — otherwise the example doesn't actually demonstrate a
+    // complete theme.
+    expect(theme.dark.accent, isNot(MementoDarkColors.accent));
+    expect(
+      theme.dark.backgroundPrimary,
+      isNot(MementoDarkColors.backgroundPrimary),
+    );
+    expect(theme.light.accent, isNot(MementoLightColors.accent));
+    expect(
+      theme.light.backgroundPrimary,
+      isNot(MementoLightColors.backgroundPrimary),
+    );
   });
 }

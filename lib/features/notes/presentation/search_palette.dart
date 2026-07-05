@@ -114,7 +114,12 @@ class _SearchPaletteState extends State<SearchPalette> {
                       controller: _controller,
                       autofocus: true,
                       decoration: const InputDecoration(
+                        // See MarkdownEditor for why enabledBorder/
+                        // focusedBorder need to be nulled out too, not
+                        // just `border`.
                         border: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: InputBorder.none,
                         hintText: 'Поиск заметок…',
                       ),
                     ),

@@ -91,4 +91,22 @@ void main() {
     final TextField field = tester.widget(find.byType(TextField));
     expect(field.controller, isA<MarkdownSyntaxController>());
   });
+
+  testWidgets(
+    'has no visible border, even under the app theme default outline',
+    (WidgetTester tester) async {
+      await tester.pumpWidget(
+        wrap(MarkdownEditor(initialContent: '', onChanged: (_) {})),
+      );
+
+      final TextField field = tester.widget(find.byType(TextField));
+      final InputDecoration decoration = field.decoration!;
+      // AppTheme sets an explicit enabledBorder/focusedBorder globally;
+      // setting only `border: InputBorder.none` here would not suppress
+      // those, so this editor's own decoration must null them out too.
+      expect(decoration.border, InputBorder.none);
+      expect(decoration.enabledBorder, InputBorder.none);
+      expect(decoration.focusedBorder, InputBorder.none);
+    },
+  );
 }

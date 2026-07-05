@@ -128,4 +128,26 @@ void main() {
 
     expect(selected?.id, 'b');
   });
+
+  testWidgets('the search field has no visible border under the app theme', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      wrap(
+        (context) => ElevatedButton(
+          onPressed: () => showSearchPalette(context, notes),
+          child: const Text('open'),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    final TextField field = tester.widget(find.byType(TextField));
+    final InputDecoration decoration = field.decoration!;
+    expect(decoration.border, InputBorder.none);
+    expect(decoration.enabledBorder, InputBorder.none);
+    expect(decoration.focusedBorder, InputBorder.none);
+  });
 }

@@ -70,7 +70,16 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
                 onChanged: widget.onChanged,
                 maxLines: null,
                 decoration: const InputDecoration(
+                  // The app theme sets an explicit OutlineInputBorder as
+                  // both enabledBorder and focusedBorder; setting only
+                  // `border: InputBorder.none` doesn't suppress those
+                  // (Flutter falls back to the theme's named borders when
+                  // enabledBorder/focusedBorder aren't set locally), so
+                  // every state needs to be nulled out here too.
                   border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  disabledBorder: InputBorder.none,
                   isCollapsed: true,
                 ),
                 style: AppEditorTextStyles.body(color),

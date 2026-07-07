@@ -173,4 +173,9 @@ class FileSystemNoteRepository implements NoteRepository {
     await File(p.join(attachmentsDir.path, fileName)).writeAsBytes(bytes);
     return 'attachments/$fileName';
   }
+
+  @override
+  String resolveAttachmentPath(String relativePath) {
+    return p.joinAll([vaultRoot.path, ...relativePath.split('/')]);
+  }
 }

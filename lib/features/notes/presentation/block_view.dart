@@ -38,6 +38,7 @@ class BlockView extends StatelessWidget {
     this.onRemoveRow,
     this.onAddColumn,
     this.onRemoveColumn,
+    this.resolveAttachmentPath,
   });
 
   final Block block;
@@ -70,6 +71,10 @@ class BlockView extends StatelessWidget {
   final VoidCallback? onAddColumn;
   final VoidCallback? onRemoveColumn;
 
+  /// Resolves [Block.attachmentPath] (vault-relative) to an absolute
+  /// on-disk path; required for [BlockType.drawing] to render.
+  final String Function(String relativePath)? resolveAttachmentPath;
+
   static const Set<BlockType> _singleLineTypes = {
     BlockType.heading1,
     BlockType.heading2,
@@ -100,6 +105,7 @@ class BlockView extends StatelessWidget {
           block: block,
           onEditDrawing: onEditDrawing,
           onDelete: onDelete,
+          resolveAttachmentPath: resolveAttachmentPath,
         );
       default:
         return _buildTextRow(context);
@@ -370,16 +376,25 @@ class _DrawingBlock extends StatelessWidget {
     required this.block,
     required this.onEditDrawing,
     required this.onDelete,
+    required this.resolveAttachmentPath,
   });
 
   final Block block;
   final VoidCallback? onEditDrawing;
   final VoidCallback onDelete;
+  final String Function(String relativePath)? resolveAttachmentPath;
 
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
-    final String? path = block.attachmentPath;
+    final String? relativePath = block.attachmentPath;
+    // block.attachmentPath is vault-relative (see NoteRepository); it
+    // must be resolved to an absolute path before File() can find it —
+    // a bare relative path resolves against the process's working
+    // directory, not the vault, and would never load.
+    final String? path = relativePath == null
+        ? null
+        : resolveAttachmentPath?.call(relativePath);
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),

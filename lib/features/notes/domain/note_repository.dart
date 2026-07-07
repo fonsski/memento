@@ -41,4 +41,11 @@ abstract class NoteRepository {
   /// Returns the vault-relative path to embed in Markdown (e.g.
   /// `attachments/1700000000000-4213.png`).
   Future<String> saveAttachment(Uint8List bytes, {String extension = 'png'});
+
+  /// Resolves a vault-relative attachment path (as returned by
+  /// [saveAttachment], e.g. from `Block.attachmentPath`) to an absolute
+  /// on-disk path suitable for reading the file directly (e.g. via
+  /// `File`/`Image.file`) — a relative path alone would resolve against
+  /// the process's working directory, not the vault, and load nothing.
+  String resolveAttachmentPath(String relativePath);
 }

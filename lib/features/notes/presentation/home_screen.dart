@@ -590,6 +590,7 @@ class _NoteEditorLoaderState extends State<_NoteEditorLoader> {
       onChanged: _handleChanged,
       onRequestDrawing: () =>
           showDrawingCanvasDialog(context, widget.repository),
+      resolveAttachmentPath: widget.repository.resolveAttachmentPath,
     );
   }
 }

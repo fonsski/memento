@@ -230,6 +230,7 @@ void main() {
             initialContent: '',
             onChanged: (_) {},
             onRequestDrawing: () async => 'attachments/test.png',
+            resolveAttachmentPath: (relative) => '/vault/$relative',
           ),
         ),
       );

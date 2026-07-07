@@ -192,4 +192,27 @@ void main() {
       expect(first, isNot(second));
     });
   });
+
+  group('resolveAttachmentPath', () {
+    test('joins a vault-relative path onto the vault root', () {
+      final String resolved = repository.resolveAttachmentPath(
+        'attachments/1.png',
+      );
+
+      expect(resolved, p.join(vaultRoot.path, 'attachments', '1.png'));
+    });
+
+    test(
+      'resolves to the same file a saved attachment was written to',
+      () async {
+        final String relativePath = await repository.saveAttachment(
+          Uint8List.fromList([9, 9, 9]),
+        );
+
+        final String resolved = repository.resolveAttachmentPath(relativePath);
+
+        expect(File(resolved).readAsBytesSync(), [9, 9, 9]);
+      },
+    );
+  });
 }

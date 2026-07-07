@@ -25,6 +25,7 @@ void main() {
     VoidCallback? onRemoveRow,
     VoidCallback? onAddColumn,
     VoidCallback? onRemoveColumn,
+    String Function(String)? resolveAttachmentPath,
   }) {
     return BlockView(
       block: block,
@@ -39,6 +40,7 @@ void main() {
       onRemoveRow: onRemoveRow,
       onAddColumn: onAddColumn,
       onRemoveColumn: onRemoveColumn,
+      resolveAttachmentPath: resolveAttachmentPath,
     );
   }
 
@@ -256,6 +258,47 @@ void main() {
       await tester.tap(find.text('Нажмите, чтобы нарисовать'));
 
       expect(opened, isTrue);
+    },
+  );
+
+  testWidgets('resolves a saved attachment path before loading it, not the raw '
+      'vault-relative path', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      wrap(
+        build(
+          block: const Block(
+            id: '1',
+            type: BlockType.drawing,
+            attachmentPath: 'attachments/1.png',
+          ),
+          resolveAttachmentPath: (relative) => '/vault/root/$relative',
+        ),
+      ),
+    );
+
+    final Image image = tester.widget(find.byType(Image));
+    final FileImage fileImage = image.image as FileImage;
+    expect(fileImage.file.path, '/vault/root/attachments/1.png');
+  });
+
+  testWidgets(
+    'shows the placeholder rather than a broken relative path when no '
+    'resolver is given',
+    (WidgetTester tester) async {
+      await tester.pumpWidget(
+        wrap(
+          build(
+            block: const Block(
+              id: '1',
+              type: BlockType.drawing,
+              attachmentPath: 'attachments/1.png',
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('Нажмите, чтобы нарисовать'), findsOneWidget);
+      expect(find.byType(Image), findsNothing);
     },
   );
 

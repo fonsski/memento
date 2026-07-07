@@ -40,6 +40,7 @@ class BlockEditor extends StatefulWidget {
     required this.initialContent,
     required this.onChanged,
     this.onRequestDrawing,
+    this.resolveAttachmentPath,
   });
 
   final String initialContent;
@@ -49,6 +50,11 @@ class BlockEditor extends StatefulWidget {
   /// saved attachment, or `null` if cancelled. The drawing command is
   /// hidden from the "/" menu entirely while this is `null`.
   final Future<String?> Function()? onRequestDrawing;
+
+  /// Resolves a `Block.attachmentPath` (vault-relative) to an absolute
+  /// on-disk path for display. Required for drawing blocks to render;
+  /// see `NoteRepository.resolveAttachmentPath`.
+  final String Function(String relativePath)? resolveAttachmentPath;
 
   static const double maxWidth = 900;
   static const double widthFraction = 0.85;
@@ -431,6 +437,7 @@ class _BlockEditorState extends State<BlockEditor> {
           onCellChanged: (row, column, value) =>
               _handleCellChanged(block.id, row, column, value),
           onEditDrawing: () => unawaited(_handleEditDrawing(block.id)),
+          resolveAttachmentPath: widget.resolveAttachmentPath,
           onAddRow: () => _addTableRow(block.id),
           onRemoveRow: () => _removeTableRow(block.id),
           onAddColumn: () => _addTableColumn(block.id),

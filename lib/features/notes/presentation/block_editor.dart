@@ -123,6 +123,23 @@ class _BlockEditorState extends State<BlockEditor> {
     final Block block = _blocks[index];
     final String newText = _controllers[blockId]!.text;
 
+    // Paragraphs are the only multi-line block whose Enter key should
+    // start a new block rather than a literal line break (code blocks
+    // need real newlines for multi-line code). Since an ancestor
+    // Focus.onKeyEvent can't reliably out-race EditableText's own Enter
+    // handling, we let the newline land in the text field and react to
+    // it here instead: split the block at the newline and move the rest
+    // into a fresh paragraph below.
+    if (block.type == BlockType.paragraph && newText.contains('\n')) {
+      final int splitAt = newText.indexOf('\n');
+      _splitParagraphBlock(
+        blockId,
+        before: newText.substring(0, splitAt),
+        after: newText.substring(splitAt + 1),
+      );
+      return;
+    }
+
     setState(() => _blocks[index] = block.copyWith(text: newText));
     _emitChange();
 
@@ -185,6 +202,39 @@ class _BlockEditorState extends State<BlockEditor> {
         _focusNodes[blockId]?.requestFocus();
       });
     }
+  }
+
+  /// Splits a paragraph block in two at the point where the user pressed
+  /// Enter: [before] stays in the existing block, [after] moves into a
+  /// new paragraph inserted right after it, which then takes focus.
+  void _splitParagraphBlock(
+    String blockId, {
+    required String before,
+    required String after,
+  }) {
+    final int index = _blocks.indexWhere((b) => b.id == blockId);
+    if (index == -1) return;
+    final String newId = _newBlockId();
+    final Block newBlock = Block(
+      id: newId,
+      type: BlockType.paragraph,
+      text: after,
+    );
+
+    setState(() {
+      _blocks[index] = _blocks[index].copyWith(text: before);
+      _controllers[blockId]!.value = TextEditingValue(
+        text: before,
+        selection: TextSelection.collapsed(offset: before.length),
+      );
+      _blocks = [..._blocks]..insert(index + 1, newBlock);
+      _ensureControllerFor(newBlock);
+    });
+    _emitChange();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _focusNodes[newId]?.requestFocus();
+    });
   }
 
   void _handleSubmitted(String blockId) {

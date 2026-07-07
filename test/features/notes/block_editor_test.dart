@@ -43,6 +43,24 @@ void main() {
     expect(find.byType(TextField), findsNWidgets(2));
   });
 
+  testWidgets(
+    'a newline typed into a paragraph splits it into two paragraphs',
+    (WidgetTester tester) async {
+      await tester.pumpWidget(
+        wrap(BlockEditor(initialContent: 'Привет мир', onChanged: (_) {})),
+      );
+
+      expect(find.byType(TextField), findsNWidgets(1));
+
+      await tester.enterText(find.byType(TextField).first, 'Привет\n мир');
+      await tester.pump();
+
+      expect(find.byType(TextField), findsNWidgets(2));
+      expect(find.text('Привет'), findsOneWidget);
+      expect(find.text(' мир'), findsOneWidget);
+    },
+  );
+
   testWidgets('the delete button removes a block', (WidgetTester tester) async {
     await tester.pumpWidget(
       wrap(BlockEditor(initialContent: '---\n\nАбзац', onChanged: (_) {})),

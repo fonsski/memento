@@ -1,4 +1,6 @@
 import 'dart:io';
+import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -107,6 +109,75 @@ void main() {
       expect(path, isNotNull);
       expect(path, startsWith('attachments/'));
       expect(File('${vaultRoot.path}/$path').existsSync(), isTrue);
+    },
+  );
+
+  testWidgets(
+    'the saved attachment actually contains the drawn stroke, not a blank '
+    'canvas',
+    (WidgetTester tester) async {
+      // Regression test: CustomPainter.shouldRepaint used to compare the
+      // strokes list by identity, but strokes are appended to that same
+      // list instance in place rather than replacing it — so the
+      // comparison always saw "no change" and the canvas never actually
+      // repainted after the first (blank) frame, no matter how much was
+      // drawn.
+      String? path;
+      final FileSystemNoteRepository repository = FileSystemNoteRepository(
+        vaultRoot,
+      );
+
+      await tester.pumpWidget(
+        wrap(
+          Builder(
+            builder: (context) => ElevatedButton(
+              onPressed: () async {
+                path = await showDrawingCanvasDialog(context, repository);
+              },
+              child: const Text('Open'),
+            ),
+          ),
+        ),
+      );
+
+      await tester.runAsync(() async {
+        await tester.tap(find.text('Open'));
+        await pumpUntil(
+          tester,
+          () => find.byType(DrawingCanvas).evaluate().isNotEmpty,
+        );
+
+        await tester.drag(find.byType(CustomPaint).first, const Offset(60, 40));
+        await tester.pump();
+
+        await tester.tap(find.text('Сохранить'));
+        await pumpUntil(tester, () => path != null);
+      });
+
+      // Let the dialog's closing animation (and any overscroll/ripple
+      // effects it started) fully settle before decoding the saved file,
+      // so no real Timer from those outlives this test.
+      await tester.pumpAndSettle();
+
+      bool hasNonWhitePixel = false;
+      await tester.runAsync(() async {
+        final Uint8List savedBytes = await File(
+          '${vaultRoot.path}/$path',
+        ).readAsBytes();
+        final ui.Codec codec = await ui.instantiateImageCodec(savedBytes);
+        final ui.FrameInfo frame = await codec.getNextFrame();
+        final ByteData rgba = (await frame.image.toByteData())!;
+        for (int i = 0; i + 2 < rgba.lengthInBytes; i += 4) {
+          if (rgba.getUint8(i) != 255 ||
+              rgba.getUint8(i + 1) != 255 ||
+              rgba.getUint8(i + 2) != 255) {
+            hasNonWhitePixel = true;
+            break;
+          }
+        }
+      });
+
+      expect(hasNonWhitePixel, isTrue);
     },
   );
 

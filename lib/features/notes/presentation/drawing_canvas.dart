@@ -126,15 +126,11 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
                   width: DrawingCanvas.canvasSize.width,
                   height: DrawingCanvas.canvasSize.height,
                   color: DrawingCanvas.backgroundColor,
-                  // A raw Listener (not GestureDetector's pan recognizer)
-                  // so strokes keep working even when an ancestor
-                  // scrollable (the dialog's SingleChildScrollView, for
-                  // short windows) would otherwise win the gesture arena
-                  // for a directionally-ambiguous drag.
-                  child: Listener(
-                    onPointerDown: (event) => _startStroke(event.localPosition),
-                    onPointerMove: (event) =>
-                        _extendStroke(event.localPosition),
+                  child: GestureDetector(
+                    onPanStart: (details) =>
+                        _startStroke(details.localPosition),
+                    onPanUpdate: (details) =>
+                        _extendStroke(details.localPosition),
                     child: CustomPaint(
                       size: DrawingCanvas.canvasSize,
                       painter: _StrokePainter(_strokes),
@@ -248,6 +244,12 @@ class _StrokePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _StrokePainter oldDelegate) =>
-      !identical(oldDelegate.strokes, strokes);
+  bool shouldRepaint(covariant _StrokePainter oldDelegate) {
+    // `strokes` is the same mutable list for the widget's whole lifetime
+    // (points are appended in place, never reassigned), so comparing it
+    // by identity always sees "the same list" and never repaints.
+    // Painting a few dozen in-progress strokes is cheap, so just always
+    // repaint rather than trying to track a version number.
+    return true;
+  }
 }

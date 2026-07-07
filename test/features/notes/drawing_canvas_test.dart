@@ -110,6 +110,57 @@ void main() {
     },
   );
 
+  testWidgets('still draws when the dialog is short enough to need scrolling', (
+    WidgetTester tester,
+  ) async {
+    // Regression test: a GestureDetector's pan recognizer nested inside
+    // a scrollable can lose the gesture arena to the ancestor's own
+    // vertical drag recognizer once there's actually room to scroll.
+    // The default test viewport is large enough that the dialog never
+    // needs to scroll, so that conflict never triggered there — shrink
+    // it here to force the SingleChildScrollView to engage.
+    tester.view.physicalSize = const Size(500, 300);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    String? path;
+    final FileSystemNoteRepository repository = FileSystemNoteRepository(
+      vaultRoot,
+    );
+
+    await tester.pumpWidget(
+      wrap(
+        Builder(
+          builder: (context) => ElevatedButton(
+            onPressed: () async {
+              path = await showDrawingCanvasDialog(context, repository);
+            },
+            child: const Text('Open'),
+          ),
+        ),
+      ),
+    );
+
+    await tester.runAsync(() async {
+      await tester.tap(find.text('Open'));
+      await pumpUntil(
+        tester,
+        () => find.byType(DrawingCanvas).evaluate().isNotEmpty,
+      );
+
+      await tester.drag(find.byType(CustomPaint).first, const Offset(60, 40));
+      await tester.pump();
+
+      await tester.ensureVisible(find.text('Сохранить'));
+      await tester.pump();
+      await tester.tap(find.text('Сохранить'));
+      await pumpUntil(tester, () => path != null);
+    });
+
+    expect(path, isNotNull);
+    expect(File('${vaultRoot.path}/$path').existsSync(), isTrue);
+  });
+
   testWidgets('selecting a palette color highlights only that swatch', (
     WidgetTester tester,
   ) async {

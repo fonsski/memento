@@ -126,11 +126,15 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
                   width: DrawingCanvas.canvasSize.width,
                   height: DrawingCanvas.canvasSize.height,
                   color: DrawingCanvas.backgroundColor,
-                  child: GestureDetector(
-                    onPanStart: (details) =>
-                        _startStroke(details.localPosition),
-                    onPanUpdate: (details) =>
-                        _extendStroke(details.localPosition),
+                  // A raw Listener (not GestureDetector's pan recognizer)
+                  // so strokes keep working even when an ancestor
+                  // scrollable (the dialog's SingleChildScrollView, for
+                  // short windows) would otherwise win the gesture arena
+                  // for a directionally-ambiguous drag.
+                  child: Listener(
+                    onPointerDown: (event) => _startStroke(event.localPosition),
+                    onPointerMove: (event) =>
+                        _extendStroke(event.localPosition),
                     child: CustomPaint(
                       size: DrawingCanvas.canvasSize,
                       painter: _StrokePainter(_strokes),

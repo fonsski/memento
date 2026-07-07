@@ -34,6 +34,10 @@ class BlockView extends StatelessWidget {
     this.onToggleChecked,
     this.onCellChanged,
     this.onEditDrawing,
+    this.onAddRow,
+    this.onRemoveRow,
+    this.onAddColumn,
+    this.onRemoveColumn,
   });
 
   final Block block;
@@ -60,6 +64,12 @@ class BlockView extends StatelessWidget {
   /// Required for [BlockType.drawing].
   final VoidCallback? onEditDrawing;
 
+  /// Table row/column controls; all required for [BlockType.table].
+  final VoidCallback? onAddRow;
+  final VoidCallback? onRemoveRow;
+  final VoidCallback? onAddColumn;
+  final VoidCallback? onRemoveColumn;
+
   static const Set<BlockType> _singleLineTypes = {
     BlockType.heading1,
     BlockType.heading2,
@@ -80,6 +90,10 @@ class BlockView extends StatelessWidget {
           block: block,
           onCellChanged: onCellChanged,
           onDelete: onDelete,
+          onAddRow: onAddRow,
+          onRemoveRow: onRemoveRow,
+          onAddColumn: onAddColumn,
+          onRemoveColumn: onRemoveColumn,
         );
       case BlockType.drawing:
         return _DrawingBlock(
@@ -232,56 +246,120 @@ class _TableBlock extends StatelessWidget {
     required this.block,
     required this.onCellChanged,
     required this.onDelete,
+    required this.onAddRow,
+    required this.onRemoveRow,
+    required this.onAddColumn,
+    required this.onRemoveColumn,
   });
 
   final Block block;
   final void Function(int row, int column, String value)? onCellChanged;
   final VoidCallback onDelete;
+  final VoidCallback? onAddRow;
+  final VoidCallback? onRemoveRow;
+  final VoidCallback? onAddColumn;
+  final VoidCallback? onRemoveColumn;
 
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Table(
-              border: TableBorder.all(color: theme.dividerColor),
-              children: [
-                for (int row = 0; row < block.tableRows.length; row++)
-                  TableRow(
-                    children: [
-                      for (
-                        int col = 0;
-                        col < block.tableRows[row].length;
-                        col++
-                      )
-                        Padding(
-                          padding: const EdgeInsets.all(4),
-                          child: TextField(
-                            controller: TextEditingController(
-                              text: block.tableRows[row][col],
-                            ),
-                            onChanged: (value) =>
-                                onCellChanged?.call(row, col, value),
-                            style: AppEditorTextStyles.body(
-                              theme.colorScheme.onSurface,
-                            ),
-                            decoration: const InputDecoration(
-                              border: InputBorder.none,
-                              isCollapsed: true,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-              ],
-            ),
+          Row(
+            children: [
+              _TableToolButton(
+                icon: Icons.playlist_add,
+                tooltip: 'Добавить строку',
+                onPressed: onAddRow,
+              ),
+              _TableToolButton(
+                icon: Icons.playlist_remove,
+                tooltip: 'Удалить строку',
+                onPressed: onRemoveRow,
+              ),
+              const SizedBox(width: 8),
+              _TableToolButton(
+                icon: Icons.view_column_outlined,
+                tooltip: 'Добавить столбец',
+                onPressed: onAddColumn,
+              ),
+              _TableToolButton(
+                icon: Icons.view_column,
+                tooltip: 'Удалить столбец',
+                onPressed: onRemoveColumn,
+              ),
+            ],
           ),
-          _DeleteButton(onDelete: onDelete),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Table(
+                  border: TableBorder.all(color: theme.dividerColor),
+                  children: [
+                    for (int row = 0; row < block.tableRows.length; row++)
+                      TableRow(
+                        children: [
+                          for (
+                            int col = 0;
+                            col < block.tableRows[row].length;
+                            col++
+                          )
+                            Padding(
+                              padding: const EdgeInsets.all(4),
+                              child: TextField(
+                                controller: TextEditingController(
+                                  text: block.tableRows[row][col],
+                                ),
+                                onChanged: (value) =>
+                                    onCellChanged?.call(row, col, value),
+                                style: AppEditorTextStyles.body(
+                                  theme.colorScheme.onSurface,
+                                ),
+                                decoration: const InputDecoration(
+                                  border: InputBorder.none,
+                                  isCollapsed: true,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                  ],
+                ),
+              ),
+              _DeleteButton(onDelete: onDelete),
+            ],
+          ),
         ],
+      ),
+    );
+  }
+}
+
+class _TableToolButton extends StatelessWidget {
+  const _TableToolButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      icon: Icon(icon, size: 18),
+      tooltip: tooltip,
+      onPressed: onPressed,
+      style: const ButtonStyle(
+        padding: WidgetStatePropertyAll(EdgeInsets.all(4)),
+        minimumSize: WidgetStatePropertyAll(Size(28, 28)),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
       ),
     );
   }

@@ -112,6 +112,48 @@ void main() {
     expect(latest, contains('изменено'));
   });
 
+  testWidgets('the add-row button grows the table by one row', (
+    WidgetTester tester,
+  ) async {
+    String? latest;
+    await tester.pumpWidget(
+      wrap(
+        BlockEditor(
+          initialContent: '| A | B |\n| --- | --- |\n| 1 | 2 |',
+          onChanged: (value) => latest = value,
+        ),
+      ),
+    );
+
+    expect(find.byType(TextField), findsNWidgets(5));
+
+    await tester.tap(find.byTooltip('Добавить строку'));
+    await tester.pump();
+
+    expect(find.byType(TextField), findsNWidgets(7));
+    expect(latest, contains('| A | B |\n| --- | --- |\n| 1 | 2 |\n|  |  |'));
+  });
+
+  testWidgets('the add-column button grows every row by one cell', (
+    WidgetTester tester,
+  ) async {
+    String? latest;
+    await tester.pumpWidget(
+      wrap(
+        BlockEditor(
+          initialContent: '| A | B |\n| --- | --- |\n| 1 | 2 |',
+          onChanged: (value) => latest = value,
+        ),
+      ),
+    );
+
+    await tester.tap(find.byTooltip('Добавить столбец'));
+    await tester.pump();
+
+    expect(find.byType(TextField), findsNWidgets(7));
+    expect(latest, contains('| A | B |  |\n| --- | --- | --- |\n| 1 | 2 |  |'));
+  });
+
   testWidgets('typing "/" on an empty paragraph opens the slash menu', (
     WidgetTester tester,
   ) async {

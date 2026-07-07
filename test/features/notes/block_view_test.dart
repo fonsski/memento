@@ -21,6 +21,10 @@ void main() {
     ValueChanged<bool>? onToggleChecked,
     void Function(int, int, String)? onCellChanged,
     VoidCallback? onEditDrawing,
+    VoidCallback? onAddRow,
+    VoidCallback? onRemoveRow,
+    VoidCallback? onAddColumn,
+    VoidCallback? onRemoveColumn,
   }) {
     return BlockView(
       block: block,
@@ -31,6 +35,10 @@ void main() {
       onToggleChecked: onToggleChecked,
       onCellChanged: onCellChanged,
       onEditDrawing: onEditDrawing,
+      onAddRow: onAddRow,
+      onRemoveRow: onRemoveRow,
+      onAddColumn: onAddColumn,
+      onRemoveColumn: onRemoveColumn,
     );
   }
 
@@ -190,6 +198,44 @@ void main() {
     await tester.enterText(find.byType(TextField).at(2), 'изменено');
 
     expect(edited, (1, 0, 'изменено'));
+  });
+
+  testWidgets('table row/column buttons call their respective callbacks', (
+    WidgetTester tester,
+  ) async {
+    var addedRow = false;
+    var removedRow = false;
+    var addedColumn = false;
+    var removedColumn = false;
+
+    await tester.pumpWidget(
+      wrap(
+        build(
+          block: const Block(
+            id: '1',
+            type: BlockType.table,
+            tableRows: [
+              ['A', 'B'],
+              ['1', '2'],
+            ],
+          ),
+          onAddRow: () => addedRow = true,
+          onRemoveRow: () => removedRow = true,
+          onAddColumn: () => addedColumn = true,
+          onRemoveColumn: () => removedColumn = true,
+        ),
+      ),
+    );
+
+    await tester.tap(find.byTooltip('Добавить строку'));
+    await tester.tap(find.byTooltip('Удалить строку'));
+    await tester.tap(find.byTooltip('Добавить столбец'));
+    await tester.tap(find.byTooltip('Удалить столбец'));
+
+    expect(addedRow, isTrue);
+    expect(removedRow, isTrue);
+    expect(addedColumn, isTrue);
+    expect(removedColumn, isTrue);
   });
 
   testWidgets(

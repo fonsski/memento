@@ -287,6 +287,55 @@ class _BlockEditorState extends State<BlockEditor> {
     _emitChange();
   }
 
+  void _addTableRow(String blockId) {
+    final int index = _blocks.indexWhere((b) => b.id == blockId);
+    if (index == -1) return;
+    final Block block = _blocks[index];
+    final int columnCount = block.tableRows.isEmpty
+        ? 2
+        : block.tableRows.first.length;
+    final List<List<String>> rows = [
+      ...block.tableRows,
+      List<String>.filled(columnCount, ''),
+    ];
+    setState(() => _blocks[index] = block.copyWith(tableRows: rows));
+    _emitChange();
+  }
+
+  void _removeTableRow(String blockId) {
+    final int index = _blocks.indexWhere((b) => b.id == blockId);
+    if (index == -1) return;
+    final Block block = _blocks[index];
+    if (block.tableRows.length <= 1) return;
+    final List<List<String>> rows = [...block.tableRows]..removeLast();
+    setState(() => _blocks[index] = block.copyWith(tableRows: rows));
+    _emitChange();
+  }
+
+  void _addTableColumn(String blockId) {
+    final int index = _blocks.indexWhere((b) => b.id == blockId);
+    if (index == -1) return;
+    final Block block = _blocks[index];
+    final List<List<String>> rows = [
+      for (final List<String> row in block.tableRows) [...row, ''],
+    ];
+    setState(() => _blocks[index] = block.copyWith(tableRows: rows));
+    _emitChange();
+  }
+
+  void _removeTableColumn(String blockId) {
+    final int index = _blocks.indexWhere((b) => b.id == blockId);
+    if (index == -1) return;
+    final Block block = _blocks[index];
+    if (block.tableRows.isEmpty || block.tableRows.first.length <= 1) return;
+    final List<List<String>> rows = [
+      for (final List<String> row in block.tableRows)
+        row.sublist(0, row.length - 1),
+    ];
+    setState(() => _blocks[index] = block.copyWith(tableRows: rows));
+    _emitChange();
+  }
+
   Future<void> _handleEditDrawing(String blockId) async {
     final Future<String?> Function()? request = widget.onRequestDrawing;
     if (request == null) return;
@@ -382,6 +431,10 @@ class _BlockEditorState extends State<BlockEditor> {
           onCellChanged: (row, column, value) =>
               _handleCellChanged(block.id, row, column, value),
           onEditDrawing: () => unawaited(_handleEditDrawing(block.id)),
+          onAddRow: () => _addTableRow(block.id),
+          onRemoveRow: () => _removeTableRow(block.id),
+          onAddColumn: () => _addTableColumn(block.id),
+          onRemoveColumn: () => _removeTableColumn(block.id),
         ),
       );
 

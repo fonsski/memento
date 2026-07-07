@@ -46,10 +46,13 @@ class BlockEditor extends StatefulWidget {
   final String initialContent;
   final ValueChanged<String> onChanged;
 
-  /// Opens the drawing canvas and returns the vault-relative path of the
-  /// saved attachment, or `null` if cancelled. The drawing command is
-  /// hidden from the "/" menu entirely while this is `null`.
-  final Future<String?> Function()? onRequestDrawing;
+  /// Opens the drawing canvas — passed the block's current
+  /// `attachmentPath` (`null` for a fresh drawing) so re-editing an
+  /// existing one continues from it rather than starting blank — and
+  /// returns the vault-relative path of the saved attachment, or `null`
+  /// if cancelled. The drawing command is hidden from the "/" menu
+  /// entirely while this is `null`.
+  final Future<String?> Function(String? existingPath)? onRequestDrawing;
 
   /// Resolves a `Block.attachmentPath` (vault-relative) to an absolute
   /// on-disk path for display. Required for drawing blocks to render;
@@ -343,9 +346,12 @@ class _BlockEditorState extends State<BlockEditor> {
   }
 
   Future<void> _handleEditDrawing(String blockId) async {
-    final Future<String?> Function()? request = widget.onRequestDrawing;
+    final Future<String?> Function(String?)? request = widget.onRequestDrawing;
     if (request == null) return;
-    final String? path = await request();
+
+    final int existingIndex = _blocks.indexWhere((b) => b.id == blockId);
+    if (existingIndex == -1) return;
+    final String? path = await request(_blocks[existingIndex].attachmentPath);
     if (!mounted || path == null) return;
 
     final int index = _blocks.indexWhere((b) => b.id == blockId);

@@ -178,4 +178,9 @@ class FileSystemNoteRepository implements NoteRepository {
   String resolveAttachmentPath(String relativePath) {
     return p.joinAll([vaultRoot.path, ...relativePath.split('/')]);
   }
+
+  @override
+  Future<void> overwriteAttachment(String relativePath, Uint8List bytes) {
+    return File(resolveAttachmentPath(relativePath)).writeAsBytes(bytes);
+  }
 }

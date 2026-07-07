@@ -7,6 +7,80 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:memento/features/notes/data/file_system_note_repository.dart';
 import 'package:memento/features/notes/presentation/drawing_canvas.dart';
 
+/// A minimal valid 2x2 black PNG, used to seed an "existing" attachment
+/// on disk directly rather than creating one by driving the dialog —
+/// see the tests that reopen an existing drawing.
+const List<int> tinyPngBytes = [
+  137,
+  80,
+  78,
+  71,
+  13,
+  10,
+  26,
+  10,
+  0,
+  0,
+  0,
+  13,
+  73,
+  72,
+  68,
+  82,
+  0,
+  0,
+  0,
+  2,
+  0,
+  0,
+  0,
+  2,
+  8,
+  2,
+  0,
+  0,
+  0,
+  253,
+  212,
+  154,
+  115,
+  0,
+  0,
+  0,
+  11,
+  73,
+  68,
+  65,
+  84,
+  120,
+  156,
+  99,
+  96,
+  64,
+  6,
+  0,
+  0,
+  14,
+  0,
+  1,
+  169,
+  145,
+  115,
+  177,
+  0,
+  0,
+  0,
+  0,
+  73,
+  69,
+  78,
+  68,
+  174,
+  66,
+  96,
+  130,
+];
+
 void main() {
   late Directory vaultRoot;
 
@@ -37,6 +111,39 @@ void main() {
     if (!condition()) {
       throw StateError('Condition not met after ${maxTries * 100}ms');
     }
+  }
+
+  Future<bool> fileHasNonWhitePixel(File file) async {
+    final Uint8List bytes = await file.readAsBytes();
+    final ui.Codec codec = await ui.instantiateImageCodec(bytes);
+    final ui.FrameInfo frame = await codec.getNextFrame();
+    final ByteData rgba = (await frame.image.toByteData())!;
+    for (int i = 0; i + 2 < rgba.lengthInBytes; i += 4) {
+      if (rgba.getUint8(i) != 255 ||
+          rgba.getUint8(i + 1) != 255 ||
+          rgba.getUint8(i + 2) != 255) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // DrawingCanvas decodes a preloaded background image via a real,
+  // unawaited Future kicked off from initState(). If the dialog is
+  // popped (e.g. by tapping Save) before that Future resolves, it keeps
+  // running abandoned in the runAsync() zone — which was observed to
+  // make the test binding hang indefinitely during teardown, waiting for
+  // it. Polling for the background to actually be in place before
+  // interacting further avoids ever leaving it dangling.
+  bool backgroundLoaded(WidgetTester tester) {
+    final Finder finder = find.byWidgetPredicate(
+      (widget) =>
+          widget is CustomPaint && widget.size == DrawingCanvas.canvasSize,
+    );
+    if (finder.evaluate().isEmpty) return false;
+    final CustomPaint customPaint = tester.widget(finder);
+    final dynamic painter = customPaint.painter;
+    return painter.background != null;
   }
 
   Widget wrap(Widget child) => MaterialApp(home: Scaffold(body: child));
@@ -181,6 +288,113 @@ void main() {
     },
   );
 
+  testWidgets(
+    'reopening an existing drawing preserves it if saved without new edits',
+    (WidgetTester tester) async {
+      // Regression test: reopening a drawing block always started from a
+      // blank canvas, discarding whatever was drawn before — confirmed on
+      // a screen recording where an existing drawing reset to white as
+      // soon as its dialog was reopened. Seeds the "existing" attachment
+      // directly on disk (rather than creating it via a first open/save
+      // pass through the dialog) so this only exercises one decode/encode
+      // cycle — cycling the dialog open/closed twice in one test was
+      // observed to make the test binding hang during teardown.
+      final Directory attachmentsDir = Directory(
+        '${vaultRoot.path}/attachments',
+      )..createSync(recursive: true);
+      final String existingAbsolutePath = '${attachmentsDir.path}/existing.png';
+      File(existingAbsolutePath).writeAsBytesSync(tinyPngBytes);
+      const String existingRelativePath = 'attachments/existing.png';
+
+      final FileSystemNoteRepository repository = FileSystemNoteRepository(
+        vaultRoot,
+      );
+      String? path;
+
+      await tester.pumpWidget(
+        wrap(
+          Builder(
+            builder: (context) => ElevatedButton(
+              onPressed: () async {
+                path = await showDrawingCanvasDialog(
+                  context,
+                  repository,
+                  existingRelativePath: existingRelativePath,
+                );
+              },
+              child: const Text('Open'),
+            ),
+          ),
+        ),
+      );
+
+      bool stillHasContent = false;
+      await tester.runAsync(() async {
+        await tester.tap(find.text('Open'));
+        await pumpUntil(tester, () => backgroundLoaded(tester));
+        // Save immediately, without drawing anything new.
+        await tester.tap(find.text('Сохранить'));
+        await pumpUntil(tester, () => path != null);
+
+        // fileHasNonWhitePixel does real file/decode I/O, which — like
+        // the rest of this chain — only resolves inside runAsync().
+        stillHasContent = await fileHasNonWhitePixel(
+          File('${vaultRoot.path}/$path'),
+        );
+      });
+
+      expect(path, existingRelativePath);
+      expect(stillHasContent, isTrue);
+    },
+  );
+
+  testWidgets(
+    'reopening an existing drawing overwrites the same attachment rather '
+    'than creating a new one',
+    (WidgetTester tester) async {
+      final Directory attachmentsDir = Directory(
+        '${vaultRoot.path}/attachments',
+      )..createSync(recursive: true);
+      final String existingAbsolutePath = '${attachmentsDir.path}/existing.png';
+      File(existingAbsolutePath).writeAsBytesSync(tinyPngBytes);
+      const String existingRelativePath = 'attachments/existing.png';
+
+      final FileSystemNoteRepository repository = FileSystemNoteRepository(
+        vaultRoot,
+      );
+      String? path;
+
+      await tester.pumpWidget(
+        wrap(
+          Builder(
+            builder: (context) => ElevatedButton(
+              onPressed: () async {
+                path = await showDrawingCanvasDialog(
+                  context,
+                  repository,
+                  existingRelativePath: existingRelativePath,
+                );
+              },
+              child: const Text('Open'),
+            ),
+          ),
+        ),
+      );
+
+      await tester.runAsync(() async {
+        await tester.tap(find.text('Open'));
+        await pumpUntil(tester, () => backgroundLoaded(tester));
+        await tester.drag(find.byType(CustomPaint).first, const Offset(60, 40));
+        await tester.pump();
+        await tester.tap(find.text('Сохранить'));
+        await pumpUntil(tester, () => path != null);
+      });
+
+      expect(path, existingRelativePath);
+      expect(attachmentsDir.listSync().whereType<File>().length, 1);
+    },
+  );
+
   testWidgets('still draws when the dialog is short enough to need scrolling', (
     WidgetTester tester,
   ) async {
@@ -290,4 +504,32 @@ void main() {
 
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets(
+    'clips the paint surface to the canvas so a drag past its edge cannot '
+    'draw over the toolbar or dialog buttons',
+    (WidgetTester tester) async {
+      await tester.pumpWidget(wrap(const DrawingCanvas()));
+
+      final Finder strokePainter = find.byWidgetPredicate(
+        (widget) =>
+            widget is CustomPaint && widget.size == DrawingCanvas.canvasSize,
+      );
+
+      // Ancestor ClipRects also exist elsewhere in the Dialog/Material
+      // chrome, so just finding *a* ClipRect ancestor would pass even
+      // without ours — check specifically for one sized to the canvas
+      // itself, which only the fix under test adds.
+      final Iterable<Element> clipRectAncestors = find
+          .ancestor(of: strokePainter, matching: find.byType(ClipRect))
+          .evaluate();
+      final bool hasCanvasSizedClip = clipRectAncestors.any(
+        (element) =>
+            (element.renderObject! as RenderBox).size ==
+            DrawingCanvas.canvasSize,
+      );
+
+      expect(hasCanvasSizedClip, isTrue);
+    },
+  );
 }

@@ -48,4 +48,9 @@ abstract class NoteRepository {
   /// `File`/`Image.file`) — a relative path alone would resolve against
   /// the process's working directory, not the vault, and load nothing.
   String resolveAttachmentPath(String relativePath);
+
+  /// Overwrites the attachment already at [relativePath] with [bytes] —
+  /// used when re-editing an existing drawing, so continuing to edit it
+  /// updates the same file instead of piling up a new one per edit.
+  Future<void> overwriteAttachment(String relativePath, Uint8List bytes);
 }

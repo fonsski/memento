@@ -215,4 +215,19 @@ void main() {
       },
     );
   });
+
+  group('overwriteAttachment', () {
+    test('replaces the bytes of an existing attachment in place', () async {
+      final String path = await repository.saveAttachment(
+        Uint8List.fromList([1, 1, 1]),
+      );
+
+      await repository.overwriteAttachment(path, Uint8List.fromList([2, 2]));
+
+      expect(File(repository.resolveAttachmentPath(path)).readAsBytesSync(), [
+        2,
+        2,
+      ]);
+    });
+  });
 }

@@ -229,7 +229,7 @@ void main() {
           BlockEditor(
             initialContent: '',
             onChanged: (_) {},
-            onRequestDrawing: () async => 'attachments/test.png',
+            onRequestDrawing: (existingPath) async => 'attachments/test.png',
             resolveAttachmentPath: (relative) => '/vault/$relative',
           ),
         ),
@@ -241,6 +241,36 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Нажмите, чтобы нарисовать'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'reopening an existing drawing block passes its current attachment path',
+    (WidgetTester tester) async {
+      String? receivedExistingPath = 'not called';
+      await tester.pumpWidget(
+        wrap(
+          BlockEditor(
+            initialContent: '![Рисунок](attachments/existing.png)',
+            onChanged: (_) {},
+            onRequestDrawing: (existingPath) async {
+              receivedExistingPath = existingPath;
+              return existingPath;
+            },
+            resolveAttachmentPath: (relative) => '/vault/$relative',
+          ),
+        ),
+      );
+
+      await tester.tap(
+        find.ancestor(
+          of: find.byType(ClipRRect),
+          matching: find.byType(GestureDetector),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(receivedExistingPath, 'attachments/existing.png');
     },
   );
 }

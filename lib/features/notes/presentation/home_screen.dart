@@ -588,8 +588,11 @@ class _NoteEditorLoaderState extends State<_NoteEditorLoader> {
     return BlockEditor(
       initialContent: content,
       onChanged: _handleChanged,
-      onRequestDrawing: () =>
-          showDrawingCanvasDialog(context, widget.repository),
+      onRequestDrawing: (existingPath) => showDrawingCanvasDialog(
+        context,
+        widget.repository,
+        existingRelativePath: existingPath,
+      ),
       resolveAttachmentPath: widget.repository.resolveAttachmentPath,
     );
   }

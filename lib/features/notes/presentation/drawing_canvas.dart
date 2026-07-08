@@ -42,6 +42,13 @@ Future<String?> showDrawingCanvasDialog(
 
   if (existingRelativePath != null) {
     await repository.overwriteAttachment(existingRelativePath, bytes);
+    // Image.file caches by file path, so without this the note keeps
+    // showing whatever was decoded from this same path before — the file
+    // on disk is already updated, but the cached image isn't.
+    final File existingFile = File(
+      repository.resolveAttachmentPath(existingRelativePath),
+    );
+    PaintingBinding.instance.imageCache.evict(FileImage(existingFile));
     return existingRelativePath;
   }
   return repository.saveAttachment(bytes);

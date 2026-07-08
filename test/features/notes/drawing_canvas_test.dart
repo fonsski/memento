@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
@@ -144,6 +145,21 @@ void main() {
     final CustomPaint customPaint = tester.widget(finder);
     final dynamic painter = customPaint.painter;
     return painter.background != null;
+  }
+
+  // Resolves an ImageProvider fully, the way Image.file does when it's
+  // actually displayed — used to prime PaintingBinding's cache the same
+  // way showing the drawing block in a note would.
+  Future<void> resolveImage(ImageProvider provider) {
+    final Completer<void> completer = Completer<void>();
+    late ImageStreamListener listener;
+    final ImageStream stream = provider.resolve(ImageConfiguration.empty);
+    listener = ImageStreamListener((image, synchronousCall) {
+      stream.removeListener(listener);
+      completer.complete();
+    });
+    stream.addListener(listener);
+    return completer.future;
   }
 
   Widget wrap(Widget child) => MaterialApp(home: Scaffold(body: child));
@@ -392,6 +408,70 @@ void main() {
 
       expect(path, existingRelativePath);
       expect(attachmentsDir.listSync().whereType<File>().length, 1);
+    },
+  );
+
+  testWidgets(
+    'overwriting an existing drawing evicts it from the image cache so the '
+    'note shows the new version',
+    (WidgetTester tester) async {
+      // Regression test: Image.file (as used to display a drawing block)
+      // caches by file path. Since reopening now overwrites the same
+      // path instead of creating a new file, the note kept showing
+      // whatever had been decoded from that path before — the file on
+      // disk was correctly updated, but the displayed image wasn't.
+      final Directory attachmentsDir = Directory(
+        '${vaultRoot.path}/attachments',
+      )..createSync(recursive: true);
+      final String existingAbsolutePath = '${attachmentsDir.path}/existing.png';
+      final File existingFile = File(existingAbsolutePath)
+        ..writeAsBytesSync(tinyPngBytes);
+      const String existingRelativePath = 'attachments/existing.png';
+      final FileImage fileImage = FileImage(existingFile);
+
+      final FileSystemNoteRepository repository = FileSystemNoteRepository(
+        vaultRoot,
+      );
+      String? path;
+
+      await tester.pumpWidget(
+        wrap(
+          Builder(
+            builder: (context) => ElevatedButton(
+              onPressed: () async {
+                path = await showDrawingCanvasDialog(
+                  context,
+                  repository,
+                  existingRelativePath: existingRelativePath,
+                );
+              },
+              child: const Text('Open'),
+            ),
+          ),
+        ),
+      );
+
+      await tester.runAsync(() async {
+        // Simulate the note having already displayed this drawing once.
+        await resolveImage(fileImage);
+        expect(
+          PaintingBinding.instance.imageCache.containsKey(fileImage),
+          isTrue,
+        );
+
+        await tester.tap(find.text('Open'));
+        await pumpUntil(tester, () => backgroundLoaded(tester));
+        await tester.drag(find.byType(CustomPaint).first, const Offset(60, 40));
+        await tester.pump();
+        await tester.tap(find.text('Сохранить'));
+        await pumpUntil(tester, () => path != null);
+      });
+
+      expect(path, existingRelativePath);
+      expect(
+        PaintingBinding.instance.imageCache.containsKey(fileImage),
+        isFalse,
+      );
     },
   );
 

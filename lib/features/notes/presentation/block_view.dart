@@ -39,6 +39,7 @@ class BlockView extends StatelessWidget {
     this.onAddColumn,
     this.onRemoveColumn,
     this.resolveAttachmentPath,
+    this.attachmentVersion = 0,
   });
 
   final Block block;
@@ -75,6 +76,14 @@ class BlockView extends StatelessWidget {
   /// on-disk path; required for [BlockType.drawing] to render.
   final String Function(String relativePath)? resolveAttachmentPath;
 
+  /// Bumped by `BlockEditor` each time this drawing is re-saved, so its
+  /// `Image` gets a new widget identity and re-reads the file even
+  /// though `attachmentPath` (and thus the plain file path) is
+  /// unchanged — otherwise the already-mounted `Image` keeps whatever
+  /// it last resolved, since evicting the path from `ImageCache` only
+  /// affects images resolved *after* the evict.
+  final int attachmentVersion;
+
   static const Set<BlockType> _singleLineTypes = {
     BlockType.heading1,
     BlockType.heading2,
@@ -106,6 +115,7 @@ class BlockView extends StatelessWidget {
           onEditDrawing: onEditDrawing,
           onDelete: onDelete,
           resolveAttachmentPath: resolveAttachmentPath,
+          attachmentVersion: attachmentVersion,
         );
       default:
         return _buildTextRow(context);
@@ -377,12 +387,14 @@ class _DrawingBlock extends StatelessWidget {
     required this.onEditDrawing,
     required this.onDelete,
     required this.resolveAttachmentPath,
+    required this.attachmentVersion,
   });
 
   final Block block;
   final VoidCallback? onEditDrawing;
   final VoidCallback onDelete;
   final String Function(String relativePath)? resolveAttachmentPath;
+  final int attachmentVersion;
 
   @override
   Widget build(BuildContext context) {
@@ -421,6 +433,10 @@ class _DrawingBlock extends StatelessWidget {
                         borderRadius: BorderRadius.circular(AppRadius.small),
                         child: Image.file(
                           File(path),
+                          // See attachmentVersion's doc comment: without
+                          // this, re-saving the same file in place
+                          // wouldn't refresh an already-mounted Image.
+                          key: ValueKey('$path#$attachmentVersion'),
                           errorBuilder: (context, error, stackTrace) => Text(
                             'Не удалось загрузить рисунок',
                             style: theme.textTheme.bodySmall,

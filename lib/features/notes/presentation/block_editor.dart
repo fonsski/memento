@@ -78,6 +78,11 @@ class _BlockEditorState extends State<BlockEditor> {
   final Map<String, FocusNode> _focusNodes = {};
   int _idCounter = 0;
 
+  /// Bumped per block each time its drawing is re-saved — see
+  /// `BlockView.attachmentVersion`'s doc comment for why this is needed
+  /// on top of evicting the file from `ImageCache`.
+  final Map<String, int> _attachmentVersions = {};
+
   String? _activeSlashBlockId;
   List<SlashCommand> _slashMatches = const [];
   int _slashHighlighted = 0;
@@ -356,9 +361,10 @@ class _BlockEditorState extends State<BlockEditor> {
 
     final int index = _blocks.indexWhere((b) => b.id == blockId);
     if (index == -1) return;
-    setState(
-      () => _blocks[index] = _blocks[index].copyWith(attachmentPath: path),
-    );
+    setState(() {
+      _blocks[index] = _blocks[index].copyWith(attachmentPath: path);
+      _attachmentVersions[blockId] = (_attachmentVersions[blockId] ?? 0) + 1;
+    });
     _emitChange();
   }
 
@@ -444,6 +450,7 @@ class _BlockEditorState extends State<BlockEditor> {
               _handleCellChanged(block.id, row, column, value),
           onEditDrawing: () => unawaited(_handleEditDrawing(block.id)),
           resolveAttachmentPath: widget.resolveAttachmentPath,
+          attachmentVersion: _attachmentVersions[block.id] ?? 0,
           onAddRow: () => _addTableRow(block.id),
           onRemoveRow: () => _removeTableRow(block.id),
           onAddColumn: () => _addTableColumn(block.id),

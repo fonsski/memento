@@ -273,4 +273,42 @@ void main() {
       expect(receivedExistingPath, 'attachments/existing.png');
     },
   );
+
+  testWidgets('re-saving an existing drawing gives its Image a new key so it '
+      'actually reloads', (WidgetTester tester) async {
+    // Regression test: even after evicting the file from ImageCache,
+    // an already-mounted Image widget for an unchanged path keeps
+    // whatever it last resolved — closing and reopening the note
+    // "fixed" it only because that recreates the Image widget from
+    // scratch. Editing in place, without closing the note, needs the
+    // widget itself to get a new identity.
+    await tester.pumpWidget(
+      wrap(
+        BlockEditor(
+          initialContent: '![Рисунок](attachments/existing.png)',
+          onChanged: (_) {},
+          onRequestDrawing: (existingPath) async => existingPath,
+          resolveAttachmentPath: (relative) => '/vault/$relative',
+        ),
+      ),
+    );
+
+    Finder drawingTapTarget() => find.ancestor(
+      of: find.byType(ClipRRect),
+      matching: find.byType(GestureDetector),
+    );
+
+    final Key? firstKey = tester.widget<Image>(find.byType(Image)).key;
+
+    await tester.tap(drawingTapTarget());
+    await tester.pumpAndSettle();
+    final Key? secondKey = tester.widget<Image>(find.byType(Image)).key;
+
+    await tester.tap(drawingTapTarget());
+    await tester.pumpAndSettle();
+    final Key? thirdKey = tester.widget<Image>(find.byType(Image)).key;
+
+    expect(secondKey, isNot(firstKey));
+    expect(thirdKey, isNot(secondKey));
+  });
 }

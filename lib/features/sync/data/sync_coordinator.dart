@@ -7,6 +7,7 @@ import '../domain/device_identity.dart';
 import '../domain/discovered_peer.dart';
 import '../domain/peer_info.dart';
 import '../domain/sync_event.dart';
+import '../domain/sync_progress.dart';
 import '../domain/sync_result.dart';
 import '../domain/trusted_peer.dart';
 import 'pairing_store.dart';
@@ -148,7 +149,10 @@ class SyncCoordinator {
   }
 
   /// Connects to an already-trusted [peer] and runs a full sync.
-  Future<SyncResult> syncWithPeer(DiscoveredPeer peer) async {
+  Future<SyncResult> syncWithPeer(
+    DiscoveredPeer peer, {
+    void Function(SyncProgress progress)? onProgress,
+  }) async {
     final Socket socket = await Socket.connect(
       peer.host,
       peer.port,
@@ -162,6 +166,7 @@ class SyncCoordinator {
     return session.sync(
       MessageChannel(socket),
       isTrusted: pairingStore.isTrusted,
+      onProgress: onProgress,
     );
   }
 

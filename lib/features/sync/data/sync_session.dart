@@ -5,6 +5,7 @@ import '../domain/device_identity.dart';
 import '../domain/peer_info.dart';
 import '../domain/sync_diff.dart';
 import '../domain/sync_manifest.dart';
+import '../domain/sync_progress.dart';
 import '../domain/sync_result.dart';
 import 'sync_baseline_store.dart';
 import 'sync_manifest_builder.dart';
@@ -107,9 +108,15 @@ class SyncSession {
   /// to never notice. [isTrusted] is checked against the peer's
   /// announced id before any vault data is exchanged. On success, saves
   /// the post-sync vault state as the new baseline for this peer.
+  ///
+  /// [onProgress], if given, is called once the total is known (with
+  /// `completed: 0`) and again after every individual push/pull/deletion
+  /// — a plain "syncing…" label doesn't say much for a sync moving more
+  /// than a note or two.
   Future<SyncResult> sync(
     MessageChannel channel, {
     required Future<bool> Function(String peerDeviceId) isTrusted,
+    void Function(SyncProgress progress)? onProgress,
   }) async {
     final StreamIterator<SyncMessage> incoming = StreamIterator(
       channel.messages(),
@@ -147,11 +154,21 @@ class SyncSession {
           if (action.kind == SyncActionKind.deleteLocal) action,
       ];
 
+      final int total = pushes.length + pulls.length + deletions.length;
+      int completedCount = 0;
+      void reportProgress() {
+        onProgress?.call(SyncProgress(completed: completedCount, total: total));
+      }
+
+      reportProgress();
+
       for (final SyncAction action in pushes) {
         final String content = await repository.readNote(action.path);
         await channel.send(
           FileContentMessage(path: action.path, content: content),
         );
+        completedCount++;
+        reportProgress();
       }
 
       final Map<String, SyncAction> pullsByPath = {
@@ -165,10 +182,14 @@ class SyncSession {
         final SyncAction action = pullsByPath[message.path]!;
         await _applyPull(action, message.content);
         if (action.conflict) conflictPaths.add(action.path);
+        completedCount++;
+        reportProgress();
       }
 
       for (final SyncAction action in deletions) {
         await repository.delete(action.path);
+        completedCount++;
+        reportProgress();
       }
 
       final SyncManifest finalManifest = await buildSyncManifest(repository);

@@ -7,6 +7,7 @@ import 'package:memento/features/sync/data/sync_session.dart';
 import 'package:memento/features/sync/data/sync_wire.dart';
 import 'package:memento/features/sync/domain/device_identity.dart';
 import 'package:memento/features/sync/domain/peer_info.dart';
+import 'package:memento/features/sync/domain/sync_progress.dart';
 import 'package:memento/features/sync/domain/sync_result.dart';
 
 /// Connects two [MessageChannel]s over a real TCP loopback connection.
@@ -162,6 +163,49 @@ void main() {
       ]);
 
       expect(await repoB.readNote('Новая заметка'), 'привет из А');
+
+      await serverSocket.close();
+    });
+
+    test('reports progress as each planned transfer completes', () async {
+      final FileSystemNoteRepository repoA = FileSystemNoteRepository(vaultA);
+      final FileSystemNoteRepository repoB = FileSystemNoteRepository(vaultB);
+      await repoA.createNote('', 'Первая');
+      await repoA.writeNote('Первая', 'a');
+      await repoA.createNote('', 'Вторая');
+      await repoA.writeNote('Вторая', 'b');
+
+      final (client, server, serverSocket) = await _connectPair();
+      final SyncSession sessionA = SyncSession(
+        repository: repoA,
+        localIdentity: const DeviceIdentity(id: 'device-a', name: 'A'),
+        baselineStore: baselineStoreA,
+      );
+      final SyncSession sessionB = SyncSession(
+        repository: repoB,
+        localIdentity: const DeviceIdentity(id: 'device-b', name: 'B'),
+        baselineStore: baselineStoreB,
+      );
+
+      final List<SyncProgress> progressUpdates = [];
+
+      await Future.wait([
+        sessionA.sync(client, isTrusted: (_) async => true),
+        sessionB.sync(
+          server,
+          isTrusted: (_) async => true,
+          onProgress: progressUpdates.add,
+        ),
+      ]);
+
+      // Two notes to pull, reported as: total known upfront (0/2),
+      // then one at a time up to completion (1/2, 2/2).
+      expect(progressUpdates, hasLength(3));
+      expect(progressUpdates[0].total, 2);
+      expect(progressUpdates[0].completed, 0);
+      expect(progressUpdates[1].completed, 1);
+      expect(progressUpdates[2].completed, 2);
+      expect(progressUpdates.every((p) => p.total == 2), isTrue);
 
       await serverSocket.close();
     });

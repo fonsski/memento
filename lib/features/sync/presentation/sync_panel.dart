@@ -6,6 +6,7 @@ import '../../notes/presentation/note_tree_dialogs.dart';
 import '../data/sync_coordinator.dart';
 import '../domain/discovered_peer.dart';
 import '../domain/sync_event.dart';
+import '../domain/sync_progress.dart';
 import '../domain/sync_result.dart';
 import '../domain/trusted_peer.dart';
 
@@ -35,6 +36,7 @@ class _SyncPanelState extends State<SyncPanel> {
   StreamSubscription<SyncEvent>? _eventsSubscription;
   String? _pairingCode;
   String? _syncingDeviceId;
+  SyncProgress? _syncProgress;
   String? _statusMessage;
 
   @override
@@ -95,6 +97,15 @@ class _SyncPanelState extends State<SyncPanel> {
     return '$base. Конфликт в: $shown$rest — прежняя версия сохранена рядом';
   }
 
+  /// A plain "syncing…" label doesn't say much once a sync is moving
+  /// more than a note or two — shows a running count once the total is
+  /// known (it isn't yet for the very first frame after starting).
+  String get _syncingLabel {
+    final SyncProgress? progress = _syncProgress;
+    if (progress == null || progress.total == 0) return 'Синхронизация…';
+    return 'Синхронизация… ${progress.completed}/${progress.total}';
+  }
+
   Future<void> _loadTrustedPeers() async {
     final List<TrustedPeer> peers = await widget.coordinator.pairingStore
         .loadTrustedPeers();
@@ -138,11 +149,15 @@ class _SyncPanelState extends State<SyncPanel> {
 
     setState(() {
       _syncingDeviceId = trusted.deviceId;
+      _syncProgress = null;
       _statusMessage = null;
     });
     try {
       final SyncResult result = await widget.coordinator.syncWithPeer(
         discovered,
+        onProgress: (progress) {
+          if (mounted) setState(() => _syncProgress = progress);
+        },
       );
       if (mounted) {
         setState(
@@ -157,7 +172,12 @@ class _SyncPanelState extends State<SyncPanel> {
         setState(() => _statusMessage = 'Ошибка синхронизации: $error');
       }
     } finally {
-      if (mounted) setState(() => _syncingDeviceId = null);
+      if (mounted) {
+        setState(() {
+          _syncingDeviceId = null;
+          _syncProgress = null;
+        });
+      }
     }
   }
 
@@ -201,6 +221,9 @@ class _SyncPanelState extends State<SyncPanel> {
                   name: trusted.name,
                   online: _discoveredFor(trusted.deviceId) != null,
                   syncing: _syncingDeviceId == trusted.deviceId,
+                  syncingLabel: _syncingDeviceId == trusted.deviceId
+                      ? _syncingLabel
+                      : null,
                   actionLabel: 'Синхронизировать',
                   onAction: _discoveredFor(trusted.deviceId) == null
                       ? null
@@ -270,6 +293,7 @@ class _DeviceRow extends StatelessWidget {
     required this.name,
     required this.online,
     required this.syncing,
+    this.syncingLabel,
     required this.actionLabel,
     required this.onAction,
   });
@@ -277,6 +301,10 @@ class _DeviceRow extends StatelessWidget {
   final String name;
   final bool online;
   final bool syncing;
+
+  /// Shown instead of a bare "Синхронизация…" while [syncing] — e.g.
+  /// with a running file count once it's known.
+  final String? syncingLabel;
   final String actionLabel;
   final VoidCallback? onAction;
 
@@ -291,7 +319,10 @@ class _DeviceRow extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(child: Text(name, style: theme.textTheme.bodyMedium)),
           if (syncing)
-            Text('Синхронизация…', style: theme.textTheme.bodySmall)
+            Text(
+              syncingLabel ?? 'Синхронизация…',
+              style: theme.textTheme.bodySmall,
+            )
           else
             TextButton(onPressed: onAction, child: Text(actionLabel)),
         ],

@@ -9,6 +9,7 @@ import 'package:memento/features/sync/data/sync_session.dart';
 import 'package:memento/features/sync/domain/device_identity.dart';
 import 'package:memento/features/sync/domain/discovered_peer.dart';
 import 'package:memento/features/sync/domain/peer_info.dart';
+import 'package:memento/features/sync/domain/sync_event.dart';
 import 'package:memento/features/sync/domain/trusted_peer.dart';
 import 'package:path/path.dart' as p;
 
@@ -150,4 +151,139 @@ void main() {
     await coordinatorA.dispose();
     await coordinatorB.dispose();
   });
+
+  group(
+    'events (incoming connections a UI wouldn\'t otherwise hear about)',
+    () {
+      test(
+        'a successful incoming pairing emits IncomingPairingAccepted',
+        () async {
+          final (coordinatorA, vaultA) = await _setUpCoordinator(
+            'a',
+            'Ноутбук',
+          );
+          final (coordinatorB, vaultB) = await _setUpCoordinator(
+            'b',
+            'Телефон',
+          );
+          tempDirs.addAll([vaultA, vaultB]);
+
+          final String code = coordinatorB.beginPairingAsResponder();
+          final Future<SyncEvent> firstEvent = coordinatorB.events.first;
+          final DiscoveredPeer peerB = DiscoveredPeer(
+            deviceId: 'b',
+            name: 'Телефон',
+            host: '127.0.0.1',
+            port: coordinatorB.listeningPort!,
+          );
+
+          await coordinatorA.pairWithPeer(peerB, code);
+
+          final SyncEvent event = await firstEvent;
+          expect(event, isA<IncomingPairingAccepted>());
+          expect((event as IncomingPairingAccepted).peerName, 'Ноутбук');
+
+          await coordinatorA.dispose();
+          await coordinatorB.dispose();
+        },
+      );
+
+      test(
+        'an incoming pairing with the wrong code emits IncomingPairingFailed',
+        () async {
+          final (coordinatorA, vaultA) = await _setUpCoordinator(
+            'a',
+            'Ноутбук',
+          );
+          final (coordinatorB, vaultB) = await _setUpCoordinator(
+            'b',
+            'Телефон',
+          );
+          tempDirs.addAll([vaultA, vaultB]);
+
+          coordinatorB.beginPairingAsResponder();
+          final Future<SyncEvent> firstEvent = coordinatorB.events.first;
+          final DiscoveredPeer peerB = DiscoveredPeer(
+            deviceId: 'b',
+            name: 'Телефон',
+            host: '127.0.0.1',
+            port: coordinatorB.listeningPort!,
+          );
+
+          await expectLater(
+            coordinatorA.pairWithPeer(peerB, 'wrong-code'),
+            throwsA(isA<SyncPairingRejectedException>()),
+          );
+
+          expect(await firstEvent, isA<IncomingPairingFailed>());
+
+          await coordinatorA.dispose();
+          await coordinatorB.dispose();
+        },
+      );
+
+      test('a successful incoming sync emits IncomingSyncCompleted', () async {
+        final (coordinatorA, vaultA) = await _setUpCoordinator('a', 'Ноутбук');
+        final (coordinatorB, vaultB) = await _setUpCoordinator('b', 'Телефон');
+        tempDirs.addAll([vaultA, vaultB]);
+
+        await coordinatorA.pairingStore.addTrustedPeer(
+          const TrustedPeer(deviceId: 'b', name: 'Телефон'),
+        );
+        await coordinatorB.pairingStore.addTrustedPeer(
+          const TrustedPeer(deviceId: 'a', name: 'Ноутбук'),
+        );
+
+        final Future<SyncEvent> firstEvent = coordinatorB.events.first;
+        final DiscoveredPeer peerB = DiscoveredPeer(
+          deviceId: 'b',
+          name: 'Телефон',
+          host: '127.0.0.1',
+          port: coordinatorB.listeningPort!,
+        );
+
+        await coordinatorA.syncWithPeer(peerB);
+
+        final SyncEvent event = await firstEvent;
+        expect(event, isA<IncomingSyncCompleted>());
+        expect((event as IncomingSyncCompleted).peerName, 'Ноутбук');
+
+        await coordinatorA.dispose();
+        await coordinatorB.dispose();
+      });
+
+      test(
+        'an incoming sync from an untrusted peer emits IncomingSyncFailed',
+        () async {
+          final (coordinatorA, vaultA) = await _setUpCoordinator(
+            'a',
+            'Ноутбук',
+          );
+          final (coordinatorB, vaultB) = await _setUpCoordinator(
+            'b',
+            'Телефон',
+          );
+          tempDirs.addAll([vaultA, vaultB]);
+
+          final Future<SyncEvent> firstEvent = coordinatorB.events.first;
+          final DiscoveredPeer peerB = DiscoveredPeer(
+            deviceId: 'b',
+            name: 'Телефон',
+            host: '127.0.0.1',
+            port: coordinatorB.listeningPort!,
+          );
+
+          await expectLater(
+            coordinatorA.syncWithPeer(peerB),
+            throwsA(isA<SyncUntrustedPeerException>()),
+          );
+
+          expect(await firstEvent, isA<IncomingSyncFailed>());
+
+          await coordinatorA.dispose();
+          await coordinatorB.dispose();
+        },
+      );
+    },
+  );
 }

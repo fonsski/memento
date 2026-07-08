@@ -8,6 +8,7 @@ import 'package:memento/features/sync/data/pairing_store.dart';
 import 'package:memento/features/sync/data/sync_baseline_store.dart';
 import 'package:memento/features/sync/data/sync_coordinator.dart';
 import 'package:memento/features/sync/domain/device_identity.dart';
+import 'package:memento/features/sync/domain/discovered_peer.dart';
 import 'package:memento/features/sync/domain/trusted_peer.dart';
 import 'package:memento/features/sync/presentation/sync_panel.dart';
 import 'package:path/path.dart' as p;
@@ -124,5 +125,49 @@ void main() {
     expect(button.onPressed, isNull);
 
     await tester.runAsync(() => coordinator.dispose());
+  });
+
+  testWidgets('shows a status message when a peer pairs with this device', (
+    WidgetTester tester,
+  ) async {
+    // Regression test: incoming connections used to be handled
+    // entirely silently — a peer pairing with this device left no
+    // trace in an already-open panel.
+    late SyncCoordinator coordinator;
+    late SyncCoordinator peerCoordinator;
+    late String code;
+
+    await tester.runAsync(() async {
+      coordinator = await _setUpCoordinator(tempDirs, 'a', 'Ноутбук');
+      peerCoordinator = await _setUpCoordinator(tempDirs, 'b', 'Телефон');
+      await tester.pumpWidget(
+        wrap((context) => SyncPanel(coordinator: coordinator)),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    });
+    await tester.pump();
+
+    await tester.tap(find.text('Показать код для сопряжения'));
+    await tester.pump();
+    code = tester.widget<Text>(find.textContaining(RegExp(r'^\d{6}$'))).data!;
+
+    await tester.runAsync(() async {
+      final DiscoveredPeer peer = DiscoveredPeer(
+        deviceId: 'a',
+        name: 'Ноутбук',
+        host: '127.0.0.1',
+        port: coordinator.listeningPort!,
+      );
+      await peerCoordinator.pairWithPeer(peer, code);
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    });
+    await tester.pump();
+
+    expect(find.textContaining('Сопряжено с'), findsOneWidget);
+
+    await tester.runAsync(() async {
+      await coordinator.dispose();
+      await peerCoordinator.dispose();
+    });
   });
 }

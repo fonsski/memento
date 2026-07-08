@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../notes/presentation/note_tree_dialogs.dart';
 import '../data/sync_coordinator.dart';
 import '../domain/discovered_peer.dart';
+import '../domain/sync_event.dart';
 import '../domain/trusted_peer.dart';
 
 /// Shows the sync panel: paired devices (with a sync action for
@@ -29,7 +30,8 @@ class SyncPanel extends StatefulWidget {
 class _SyncPanelState extends State<SyncPanel> {
   List<TrustedPeer> _trustedPeers = [];
   List<DiscoveredPeer> _discoveredPeers = [];
-  StreamSubscription<List<DiscoveredPeer>>? _subscription;
+  StreamSubscription<List<DiscoveredPeer>>? _peersSubscription;
+  StreamSubscription<SyncEvent>? _eventsSubscription;
   String? _pairingCode;
   String? _syncingDeviceId;
   String? _statusMessage;
@@ -37,18 +39,39 @@ class _SyncPanelState extends State<SyncPanel> {
   @override
   void initState() {
     super.initState();
-    _subscription = widget.coordinator.discovery.peers.listen((
+    _peersSubscription = widget.coordinator.discovery.peers.listen((
       List<DiscoveredPeer> peers,
     ) {
       if (mounted) setState(() => _discoveredPeers = peers);
     });
+    _eventsSubscription = widget.coordinator.events.listen(_handleSyncEvent);
     unawaited(_loadTrustedPeers());
   }
 
   @override
   void dispose() {
-    unawaited(_subscription?.cancel());
+    unawaited(_peersSubscription?.cancel());
+    unawaited(_eventsSubscription?.cancel());
     super.dispose();
+  }
+
+  /// Incoming pairing/sync activity — driven by a peer connecting to us,
+  /// not by anything the user did in this dialog — reported the same way
+  /// as this device's own pairing/sync attempts, so it isn't silently
+  /// invisible while this panel happens to be open.
+  void _handleSyncEvent(SyncEvent event) {
+    if (!mounted) return;
+    switch (event) {
+      case IncomingPairingAccepted(:final peerName):
+        unawaited(_loadTrustedPeers());
+        setState(() => _statusMessage = 'Сопряжено с «$peerName»');
+      case IncomingPairingFailed(:final error):
+        setState(() => _statusMessage = 'Не удалось сопрячь: $error');
+      case IncomingSyncCompleted(:final peerName):
+        setState(() => _statusMessage = 'Синхронизировано с «$peerName»');
+      case IncomingSyncFailed(:final error):
+        setState(() => _statusMessage = 'Ошибка синхронизации: $error');
+    }
   }
 
   Future<void> _loadTrustedPeers() async {

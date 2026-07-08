@@ -6,6 +6,7 @@ import '../../notes/data/file_system_note_repository.dart';
 import '../domain/device_identity.dart';
 import '../domain/discovered_peer.dart';
 import '../domain/peer_info.dart';
+import '../domain/sync_event.dart';
 import '../domain/trusted_peer.dart';
 import 'pairing_store.dart';
 import 'sync_baseline_store.dart';
@@ -38,6 +39,15 @@ class SyncCoordinator {
   final SyncDiscoveryService discovery = SyncDiscoveryService();
   ServerSocket? _serverSocket;
   String? _pendingPairingCode;
+
+  final StreamController<SyncEvent> _events = StreamController.broadcast();
+
+  /// Outcomes of *incoming* connections (a peer pairing with or syncing
+  /// against this device) — the only way a UI can learn about those,
+  /// since they're handled in the background rather than in response to
+  /// a call the UI itself made. [pairWithPeer] and [syncWithPeer] report
+  /// their own outcome directly to their caller instead.
+  Stream<SyncEvent> get events => _events.stream;
 
   int? get listeningPort => _serverSocket?.port;
 
@@ -78,6 +88,7 @@ class SyncCoordinator {
     _pairingExpiryTimer?.cancel();
     await stopNetworkDiscovery();
     await stopListening();
+    await _events.close();
   }
 
   Timer? _pairingExpiryTimer;
@@ -154,18 +165,27 @@ class SyncCoordinator {
           await pairingStore.addTrustedPeer(
             TrustedPeer(deviceId: info.deviceId, name: info.name),
           );
-        } catch (_) {
+          _events.add(IncomingPairingAccepted(info.name));
+        } catch (error) {
           // Pairing failed (code mismatch, network hiccup, etc.); the
-          // peer sees the rejection or the closed connection.
+          // peer sees the rejection or the closed connection, and
+          // anything showing sync status locally hears about it too.
+          _events.add(IncomingPairingFailed(error));
         }
       }());
     } else {
       unawaited(() async {
         try {
-          await session.sync(channel, isTrusted: pairingStore.isTrusted);
-        } catch (_) {
-          // Incoming sync failed (untrusted peer, network hiccup,
-          // etc.); the peer sees the closed connection.
+          final PeerInfo info = await session.sync(
+            channel,
+            isTrusted: pairingStore.isTrusted,
+          );
+          _events.add(IncomingSyncCompleted(info.name));
+        } catch (error) {
+          // Incoming sync failed (untrusted peer, network hiccup, etc.);
+          // the peer sees the closed connection, and anything showing
+          // sync status locally hears about it too.
+          _events.add(IncomingSyncFailed(error));
         }
       }());
     }

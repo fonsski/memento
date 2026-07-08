@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:bonsoir/bonsoir.dart';
+import 'package:flutter/foundation.dart';
 
 import '../domain/discovered_peer.dart';
 
@@ -71,15 +72,29 @@ String? _selectHost(List<String> addresses, String? hostname) {
 /// manually against a real second device. The pure service-to-peer
 /// mapping ([discoveredPeerFromService]) is testable on its own.
 class SyncDiscoveryService {
+  SyncDiscoveryService({required this.ownDeviceId});
+
+  /// This device's own id, used to filter its own broadcast out of the
+  /// results — see [discoveredPeerFromService].
+  final String ownDeviceId;
+
   BonsoirBroadcast? _broadcast;
   BonsoirDiscovery? _discovery;
-  String? _ownDeviceId;
   final Map<String, DiscoveredPeer> _peers = {};
   final StreamController<List<DiscoveredPeer>> _peersController =
       StreamController<List<DiscoveredPeer>>.broadcast();
 
   /// The current set of discovered peers, emitted again on every change.
+  ///
+  /// This is a broadcast stream: it does NOT replay to late subscribers,
+  /// so anything building UI from it must seed itself from
+  /// [currentPeers] first — otherwise peers discovered before the
+  /// subscription (typically all of them, discovery starts at app
+  /// launch) are invisible until the next network change.
   Stream<List<DiscoveredPeer>> get peers => _peersController.stream;
+
+  /// The peers discovered so far — the snapshot to pair with [peers].
+  List<DiscoveredPeer> get currentPeers => List.unmodifiable(_peers.values);
 
   Future<void> startBroadcasting({
     required String deviceId,
@@ -106,13 +121,10 @@ class SyncDiscoveryService {
     _broadcast = null;
   }
 
-  /// [ownDeviceId] is this device's own id, used to filter its own
-  /// broadcast out of the results — see [discoveredPeerFromService].
-  Future<void> startDiscovery({required String ownDeviceId}) async {
-    _ownDeviceId = ownDeviceId;
+  Future<void> startDiscovery() async {
     final BonsoirDiscovery discovery = BonsoirDiscovery(type: syncServiceType);
     await discovery.initialize();
-    discovery.eventStream?.listen(_handleEvent);
+    discovery.eventStream?.listen(handleDiscoveryEvent);
     await discovery.start();
     _discovery = discovery;
   }
@@ -123,17 +135,23 @@ class SyncDiscoveryService {
     _peers.clear();
   }
 
-  void _handleEvent(BonsoirDiscoveryEvent event) {
-    final BonsoirDiscovery? discovery = _discovery;
-    if (discovery == null) return;
-
+  /// Visible for testing: the mDNS plumbing that produces these events
+  /// needs real platform channels, but the bookkeeping they drive
+  /// (which is where the "panel shows nothing" class of bug lives) is
+  /// pure and worth covering.
+  @visibleForTesting
+  void handleDiscoveryEvent(BonsoirDiscoveryEvent event) {
     switch (event) {
       case BonsoirDiscoveryServiceFoundEvent():
-        event.service.resolve(discovery.serviceResolver);
+        // Found services carry no addresses yet; ask the OS to resolve.
+        final BonsoirDiscovery? discovery = _discovery;
+        if (discovery != null) {
+          event.service.resolve(discovery.serviceResolver);
+        }
       case BonsoirDiscoveryServiceResolvedEvent():
         final DiscoveredPeer? peer = discoveredPeerFromService(
           event.service,
-          ownDeviceId: _ownDeviceId ?? '',
+          ownDeviceId: ownDeviceId,
         );
         if (peer != null) {
           _peers[event.service.name] = peer;

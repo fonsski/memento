@@ -128,4 +128,79 @@ void main() {
       expect(serviceNameFor(deviceId: 'ab', deviceName: 'x'), 'x-ab');
     });
   });
+
+  group('handleDiscoveryEvent bookkeeping', () {
+    test('a resolved service lands in currentPeers even with no subscriber, '
+        'so a late-opened panel can seed itself', () {
+      final SyncDiscoveryService discovery = SyncDiscoveryService(
+        ownDeviceId: 'my-id',
+      );
+
+      discovery.handleDiscoveryEvent(
+        BonsoirDiscoveryServiceResolvedEvent(
+          service: service(
+            attributes: {'deviceId': 'peer-id', 'deviceName': 'Ноутбук'},
+            hostAddresses: ['192.168.1.10'],
+          ),
+        ),
+      );
+
+      expect(discovery.currentPeers, hasLength(1));
+      expect(discovery.currentPeers.single.deviceId, 'peer-id');
+    });
+
+    test('a lost service is removed from currentPeers', () {
+      final SyncDiscoveryService discovery = SyncDiscoveryService(
+        ownDeviceId: 'my-id',
+      );
+      final BonsoirService resolved = service(
+        attributes: {'deviceId': 'peer-id'},
+        hostAddresses: ['192.168.1.10'],
+      );
+
+      discovery.handleDiscoveryEvent(
+        BonsoirDiscoveryServiceResolvedEvent(service: resolved),
+      );
+      discovery.handleDiscoveryEvent(
+        BonsoirDiscoveryServiceLostEvent(service: resolved),
+      );
+
+      expect(discovery.currentPeers, isEmpty);
+    });
+
+    test('this device\'s own broadcast never enters currentPeers', () {
+      final SyncDiscoveryService discovery = SyncDiscoveryService(
+        ownDeviceId: 'my-id',
+      );
+
+      discovery.handleDiscoveryEvent(
+        BonsoirDiscoveryServiceResolvedEvent(
+          service: service(
+            attributes: {'deviceId': 'my-id'},
+            hostAddresses: ['192.168.1.10'],
+          ),
+        ),
+      );
+
+      expect(discovery.currentPeers, isEmpty);
+    });
+
+    test('changes are also emitted on the peers stream', () async {
+      final SyncDiscoveryService discovery = SyncDiscoveryService(
+        ownDeviceId: 'my-id',
+      );
+      final Future<List<DiscoveredPeer>> firstEmission = discovery.peers.first;
+
+      discovery.handleDiscoveryEvent(
+        BonsoirDiscoveryServiceResolvedEvent(
+          service: service(
+            attributes: {'deviceId': 'peer-id'},
+            hostAddresses: ['192.168.1.10'],
+          ),
+        ),
+      );
+
+      expect(await firstEmission, hasLength(1));
+    });
+  });
 }

@@ -42,6 +42,11 @@ class _SyncPanelState extends State<SyncPanel> {
   @override
   void initState() {
     super.initState();
+    // Discovery has been running since app launch, and its stream
+    // doesn't replay — without this snapshot the panel would only show
+    // peers whose mDNS records happen to change *while* it's open,
+    // i.e. usually nothing.
+    _discoveredPeers = widget.coordinator.discovery.currentPeers;
     _peersSubscription = widget.coordinator.discovery.peers.listen((
       List<DiscoveredPeer> peers,
     ) {

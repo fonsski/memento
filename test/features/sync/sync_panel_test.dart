@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:bonsoir/bonsoir.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:memento/core/theme/app_theme.dart';
@@ -7,6 +8,7 @@ import 'package:memento/features/notes/data/file_system_note_repository.dart';
 import 'package:memento/features/sync/data/pairing_store.dart';
 import 'package:memento/features/sync/data/sync_baseline_store.dart';
 import 'package:memento/features/sync/data/sync_coordinator.dart';
+import 'package:memento/features/sync/data/sync_discovery_service.dart';
 import 'package:memento/features/sync/domain/device_identity.dart';
 import 'package:memento/features/sync/domain/discovered_peer.dart';
 import 'package:memento/features/sync/domain/trusted_peer.dart';
@@ -97,6 +99,42 @@ void main() {
     await tester.pump();
 
     expect(find.textContaining(RegExp(r'^\d{6}$')), findsOneWidget);
+
+    await tester.runAsync(() => coordinator.dispose());
+  });
+
+  testWidgets('shows a peer that was discovered before the panel was opened', (
+    WidgetTester tester,
+  ) async {
+    // Regression test: discovery runs from app launch and its stream
+    // doesn't replay, so peers found before the panel opened (i.e.
+    // usually all of them) never appeared — leaving no device list
+    // and nowhere to enter a pairing code.
+    late SyncCoordinator coordinator;
+
+    await tester.runAsync(() async {
+      coordinator = await _setUpCoordinator(tempDirs, 'a', 'Ноутбук');
+      // Simulate a peer resolved by mDNS before the panel exists.
+      coordinator.discovery.handleDiscoveryEvent(
+        BonsoirDiscoveryServiceResolvedEvent(
+          service: BonsoirService(
+            name: 'fon-linux-bbbbbb',
+            type: syncServiceType,
+            port: 12345,
+            hostAddresses: const ['192.168.1.20'],
+            attributes: const {'deviceId': 'b', 'deviceName': 'Телефон'},
+          ),
+        ),
+      );
+      await tester.pumpWidget(
+        wrap((context) => SyncPanel(coordinator: coordinator)),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    });
+    await tester.pump();
+
+    expect(find.text('Телефон'), findsOneWidget);
+    expect(find.text('Сопряжить'), findsOneWidget);
 
     await tester.runAsync(() => coordinator.dispose());
   });

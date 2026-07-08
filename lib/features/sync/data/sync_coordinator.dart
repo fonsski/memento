@@ -48,7 +48,9 @@ class SyncCoordinator {
   /// address instead of waiting out the real default.
   final Duration connectTimeout;
 
-  final SyncDiscoveryService discovery = SyncDiscoveryService();
+  late final SyncDiscoveryService discovery = SyncDiscoveryService(
+    ownDeviceId: identity.id,
+  );
   ServerSocket? _serverSocket;
   String? _pendingPairingCode;
 
@@ -88,7 +90,7 @@ class SyncCoordinator {
       deviceName: identity.name,
       port: port,
     );
-    await discovery.startDiscovery(ownDeviceId: identity.id);
+    await discovery.startDiscovery();
   }
 
   Future<void> stopNetworkDiscovery() async {

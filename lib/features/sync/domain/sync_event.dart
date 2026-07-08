@@ -25,9 +25,14 @@ class IncomingPairingFailed extends SyncEvent {
 
 /// A trusted peer successfully synced against this device.
 class IncomingSyncCompleted extends SyncEvent {
-  const IncomingSyncCompleted(this.peerName);
+  const IncomingSyncCompleted(this.peerName, {required this.conflictPaths});
 
   final String peerName;
+
+  /// Note paths where this device's content lost a genuine conflict and
+  /// was preserved as a `.conflict-<timestamp>` copy — see
+  /// `SyncResult.conflictPaths`.
+  final List<String> conflictPaths;
 }
 
 /// An incoming sync attempt failed — an untrusted peer, or a network or

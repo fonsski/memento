@@ -170,4 +170,59 @@ void main() {
       await peerCoordinator.dispose();
     });
   });
+
+  testWidgets('shows a conflict message when an incoming sync produces one', (
+    WidgetTester tester,
+  ) async {
+    // Regression test: a conflict was previously only visible as an
+    // unannounced ".conflict-<timestamp>" file sitting in the tree.
+    late SyncCoordinator coordinator;
+    late SyncCoordinator peerCoordinator;
+
+    await tester.runAsync(() async {
+      coordinator = await _setUpCoordinator(tempDirs, 'a', 'Ноутбук');
+      peerCoordinator = await _setUpCoordinator(tempDirs, 'b', 'Телефон');
+      await coordinator.pairingStore.addTrustedPeer(
+        const TrustedPeer(deviceId: 'b', name: 'Телефон'),
+      );
+      await peerCoordinator.pairingStore.addTrustedPeer(
+        const TrustedPeer(deviceId: 'a', name: 'Ноутбук'),
+      );
+
+      // A's copy is older, so when B syncs against A, A is the side
+      // that loses and preserves a conflict copy of its own content.
+      await coordinator.repository.createNote('', 'Заметка');
+      await peerCoordinator.repository.createNote('', 'Заметка');
+      await coordinator.repository.writeNote('Заметка', 'старая версия (А)');
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      await peerCoordinator.repository.writeNote('Заметка', 'новая версия (Б)');
+
+      await tester.pumpWidget(
+        wrap((context) => SyncPanel(coordinator: coordinator)),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    });
+    await tester.pump();
+
+    await tester.runAsync(() async {
+      final DiscoveredPeer peer = DiscoveredPeer(
+        deviceId: 'a',
+        name: 'Ноутбук',
+        host: '127.0.0.1',
+        port: coordinator.listeningPort!,
+      );
+      // B connects out to A, so A (this panel's coordinator) is the one
+      // receiving an incoming sync.
+      await peerCoordinator.syncWithPeer(peer);
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    });
+    await tester.pump();
+
+    expect(find.textContaining('Конфликт'), findsOneWidget);
+
+    await tester.runAsync(() async {
+      await coordinator.dispose();
+      await peerCoordinator.dispose();
+    });
+  });
 }

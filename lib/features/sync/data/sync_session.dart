@@ -5,6 +5,7 @@ import '../domain/device_identity.dart';
 import '../domain/peer_info.dart';
 import '../domain/sync_diff.dart';
 import '../domain/sync_manifest.dart';
+import '../domain/sync_result.dart';
 import 'sync_baseline_store.dart';
 import 'sync_manifest_builder.dart';
 import 'sync_wire.dart';
@@ -101,11 +102,12 @@ class SyncSession {
   /// then pushes/pulls/deletes notes per [diffManifests] (against this
   /// peer's baseline from the last successful sync, so offline deletions
   /// don't resurrect), applying a `.conflict-<timestamp>` copy before
-  /// overwriting the losing side of a genuine conflict. [isTrusted] is
-  /// checked against the peer's announced id before any vault data is
-  /// exchanged. On success, saves the post-sync vault state as the new
-  /// baseline for this peer.
-  Future<PeerInfo> sync(
+  /// overwriting the losing side of a genuine conflict — reported back
+  /// via [SyncResult.conflictPaths], since a silent copy on disk is easy
+  /// to never notice. [isTrusted] is checked against the peer's
+  /// announced id before any vault data is exchanged. On success, saves
+  /// the post-sync vault state as the new baseline for this peer.
+  Future<SyncResult> sync(
     MessageChannel channel, {
     required Future<bool> Function(String peerDeviceId) isTrusted,
   }) async {
@@ -155,12 +157,14 @@ class SyncSession {
       final Map<String, SyncAction> pullsByPath = {
         for (final SyncAction action in pulls) action.path: action,
       };
+      final List<String> conflictPaths = [];
       for (int i = 0; i < pulls.length; i++) {
         final FileContentMessage message = await _next<FileContentMessage>(
           incoming,
         );
         final SyncAction action = pullsByPath[message.path]!;
         await _applyPull(action, message.content);
+        if (action.conflict) conflictPaths.add(action.path);
       }
 
       for (final SyncAction action in deletions) {
@@ -170,7 +174,13 @@ class SyncSession {
       final SyncManifest finalManifest = await buildSyncManifest(repository);
       await baselineStore.saveBaseline(peerHello.deviceId, finalManifest);
 
-      return PeerInfo(deviceId: peerHello.deviceId, name: peerHello.deviceName);
+      return SyncResult(
+        peer: PeerInfo(
+          deviceId: peerHello.deviceId,
+          name: peerHello.deviceName,
+        ),
+        conflictPaths: conflictPaths,
+      );
     } finally {
       await incoming.cancel();
       await channel.close();

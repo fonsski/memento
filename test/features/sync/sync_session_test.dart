@@ -7,6 +7,7 @@ import 'package:memento/features/sync/data/sync_session.dart';
 import 'package:memento/features/sync/data/sync_wire.dart';
 import 'package:memento/features/sync/domain/device_identity.dart';
 import 'package:memento/features/sync/domain/peer_info.dart';
+import 'package:memento/features/sync/domain/sync_result.dart';
 
 /// Connects two [MessageChannel]s over a real TCP loopback connection.
 Future<(MessageChannel, MessageChannel, ServerSocket)> _connectPair() async {
@@ -188,7 +189,7 @@ void main() {
           baselineStore: baselineStoreB,
         );
 
-        await Future.wait([
+        final List<SyncResult> results = await Future.wait([
           sessionA.sync(client, isTrusted: (_) async => true),
           sessionB.sync(server, isTrusted: (_) async => true),
         ]);
@@ -199,6 +200,11 @@ void main() {
           (f) => f.path.contains('конфликт'),
         );
         expect(hasConflictCopy, isTrue);
+
+        // A's content won (pushed), so A itself preserved nothing; B is
+        // the side that lost and kept a conflict copy of its own content.
+        expect(results[0].conflictPaths, isEmpty);
+        expect(results[1].conflictPaths, ['Заметка']);
 
         await serverSocket.close();
       },

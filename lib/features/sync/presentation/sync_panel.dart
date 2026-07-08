@@ -6,6 +6,7 @@ import '../../notes/presentation/note_tree_dialogs.dart';
 import '../data/sync_coordinator.dart';
 import '../domain/discovered_peer.dart';
 import '../domain/sync_event.dart';
+import '../domain/sync_result.dart';
 import '../domain/trusted_peer.dart';
 
 /// Shows the sync panel: paired devices (with a sync action for
@@ -67,11 +68,31 @@ class _SyncPanelState extends State<SyncPanel> {
         setState(() => _statusMessage = 'Сопряжено с «$peerName»');
       case IncomingPairingFailed(:final error):
         setState(() => _statusMessage = 'Не удалось сопрячь: $error');
-      case IncomingSyncCompleted(:final peerName):
-        setState(() => _statusMessage = 'Синхронизировано с «$peerName»');
+      case IncomingSyncCompleted(:final peerName, :final conflictPaths):
+        setState(
+          () => _statusMessage = _syncCompletedMessage(peerName, conflictPaths),
+        );
       case IncomingSyncFailed(:final error):
         setState(() => _statusMessage = 'Ошибка синхронизации: $error');
     }
+  }
+
+  /// A conflict means this device's content lost to a newer edit made
+  /// elsewhere and was preserved as a `.conflict-<timestamp>` copy rather
+  /// than silently discarded — worth calling out, since that copy is
+  /// otherwise easy to never notice sitting in the tree.
+  static String _syncCompletedMessage(
+    String peerName,
+    List<String> conflictPaths,
+  ) {
+    final String base = 'Синхронизировано с «$peerName»';
+    if (conflictPaths.isEmpty) return base;
+
+    const int maxShown = 3;
+    final String shown = conflictPaths.take(maxShown).join(', ');
+    final int remaining = conflictPaths.length - maxShown;
+    final String rest = remaining > 0 ? ' и ещё $remaining' : '';
+    return '$base. Конфликт в: $shown$rest — прежняя версия сохранена рядом';
   }
 
   Future<void> _loadTrustedPeers() async {
@@ -120,9 +141,16 @@ class _SyncPanelState extends State<SyncPanel> {
       _statusMessage = null;
     });
     try {
-      await widget.coordinator.syncWithPeer(discovered);
+      final SyncResult result = await widget.coordinator.syncWithPeer(
+        discovered,
+      );
       if (mounted) {
-        setState(() => _statusMessage = 'Синхронизировано с «${trusted.name}»');
+        setState(
+          () => _statusMessage = _syncCompletedMessage(
+            trusted.name,
+            result.conflictPaths,
+          ),
+        );
       }
     } catch (error) {
       if (mounted) {

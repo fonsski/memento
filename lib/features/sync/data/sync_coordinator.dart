@@ -7,6 +7,7 @@ import '../domain/device_identity.dart';
 import '../domain/discovered_peer.dart';
 import '../domain/peer_info.dart';
 import '../domain/sync_event.dart';
+import '../domain/sync_result.dart';
 import '../domain/trusted_peer.dart';
 import 'pairing_store.dart';
 import 'sync_baseline_store.dart';
@@ -147,7 +148,7 @@ class SyncCoordinator {
   }
 
   /// Connects to an already-trusted [peer] and runs a full sync.
-  Future<PeerInfo> syncWithPeer(DiscoveredPeer peer) async {
+  Future<SyncResult> syncWithPeer(DiscoveredPeer peer) async {
     final Socket socket = await Socket.connect(
       peer.host,
       peer.port,
@@ -194,11 +195,16 @@ class SyncCoordinator {
     } else {
       unawaited(() async {
         try {
-          final PeerInfo info = await session.sync(
+          final SyncResult result = await session.sync(
             channel,
             isTrusted: pairingStore.isTrusted,
           );
-          _events.add(IncomingSyncCompleted(info.name));
+          _events.add(
+            IncomingSyncCompleted(
+              result.peer.name,
+              conflictPaths: result.conflictPaths,
+            ),
+          );
         } catch (error) {
           // Incoming sync failed (untrusted peer, network hiccup, etc.);
           // the peer sees the closed connection, and anything showing

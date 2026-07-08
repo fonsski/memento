@@ -85,8 +85,12 @@ class FileSystemNoteRepository implements NoteRepository {
   }
 
   @override
-  Future<void> writeNote(String path, String content) {
-    return File(_absoluteNotePath(path)).writeAsString(content);
+  Future<void> writeNote(String path, String content) async {
+    final File file = File(_absoluteNotePath(path));
+    // Notes arriving from a sync can live in folders this vault doesn't
+    // have yet — writeAsString alone fails on a missing parent.
+    await file.parent.create(recursive: true);
+    await file.writeAsString(content);
   }
 
   /// Last-modified time of the `.md` file backing note [path], used by

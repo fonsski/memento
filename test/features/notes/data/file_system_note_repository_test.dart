@@ -77,6 +77,16 @@ void main() {
     expect(await repository.readNote('folder/nested'), '# Hello, Memento');
   });
 
+  test('writeNote creates missing parent folders', () async {
+    // A synced note can live in a folder this vault has never seen.
+    await repository.writeNote('новая папка/заметка', 'из другого устройства');
+
+    expect(
+      await repository.readNote('новая папка/заметка'),
+      'из другого устройства',
+    );
+  });
+
   test('noteModifiedAt reflects the last write', () async {
     await repository.createNote('', 'Заметка');
     final DateTime before = DateTime.now().subtract(const Duration(seconds: 1));

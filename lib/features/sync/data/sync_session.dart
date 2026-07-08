@@ -179,9 +179,14 @@ class SyncSession {
         final FileContentMessage message = await _next<FileContentMessage>(
           incoming,
         );
-        final SyncAction action = pullsByPath[message.path]!;
-        await _applyPull(action, message.content);
-        if (action.conflict) conflictPaths.add(action.path);
+        // A path we didn't plan to pull would mean the two sides'
+        // diffs disagree (diverged baselines); don't apply content this
+        // side decided it didn't want.
+        final SyncAction? action = pullsByPath[message.path];
+        if (action != null) {
+          await _applyPull(action, message.content);
+          if (action.conflict) conflictPaths.add(action.path);
+        }
         completedCount++;
         reportProgress();
       }
@@ -192,7 +197,16 @@ class SyncSession {
         reportProgress();
       }
 
+      // The baseline must be recorded on both sides or on neither: it's
+      // what lets the next diff treat a missing path as "deleted on the
+      // peer", so a baseline recorded by only one side (this side
+      // finished, the peer failed mid-apply) would make the next sync
+      // delete notes the peer never actually received. Exchanging done
+      // markers first means each side saves only once the other has
+      // fully applied too.
       final SyncManifest finalManifest = await buildSyncManifest(repository);
+      await channel.send(SyncDoneMessage());
+      await _next<SyncDoneMessage>(incoming);
       await baselineStore.saveBaseline(peerHello.deviceId, finalManifest);
 
       return SyncResult(

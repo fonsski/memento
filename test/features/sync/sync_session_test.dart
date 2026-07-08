@@ -167,6 +167,82 @@ void main() {
       await serverSocket.close();
     });
 
+    test('copies a note living inside a folder, creating the folder', () async {
+      // Regression test: writeNote didn't create parent directories, so
+      // pulling a foldered note onto a vault without that folder blew up
+      // partway through the sync.
+      final FileSystemNoteRepository repoA = FileSystemNoteRepository(vaultA);
+      final FileSystemNoteRepository repoB = FileSystemNoteRepository(vaultB);
+      await repoA.createFolder('', 'Папка');
+      await repoA.createNote('Папка', 'Вложенная');
+      await repoA.writeNote('Папка/Вложенная', 'глубокий текст');
+
+      final (client, server, serverSocket) = await _connectPair();
+      final SyncSession sessionA = SyncSession(
+        repository: repoA,
+        localIdentity: const DeviceIdentity(id: 'device-a', name: 'A'),
+        baselineStore: baselineStoreA,
+      );
+      final SyncSession sessionB = SyncSession(
+        repository: repoB,
+        localIdentity: const DeviceIdentity(id: 'device-b', name: 'B'),
+        baselineStore: baselineStoreB,
+      );
+
+      await Future.wait([
+        sessionA.sync(client, isTrusted: (_) async => true),
+        sessionB.sync(server, isTrusted: (_) async => true),
+      ]);
+
+      expect(await repoB.readNote('Папка/Вложенная'), 'глубокий текст');
+
+      await serverSocket.close();
+    });
+
+    test('neither side records a baseline when one fails mid-apply, so the '
+        'next sync cannot mistake the failure for a deletion', () async {
+      // Regression test: A used to finish its half, record a baseline
+      // including a note B never actually managed to write, and the
+      // *next* sync would then read that baseline as "B deleted it"
+      // and delete A's own copy — silent data loss triggered by a
+      // one-sided failure.
+      final FileSystemNoteRepository repoA = FileSystemNoteRepository(vaultA);
+      final FileSystemNoteRepository repoB = FileSystemNoteRepository(vaultB);
+      await repoA.createNote('', 'Заметка');
+      await repoA.writeNote('Заметка', 'текст');
+      // Sabotage B's side: a *directory* already sits exactly where
+      // the pulled note's file must be written, so B's apply throws.
+      await Directory('${vaultB.path}/Заметка.md').create();
+
+      final (client, server, serverSocket) = await _connectPair();
+      final SyncSession sessionA = SyncSession(
+        repository: repoA,
+        localIdentity: const DeviceIdentity(id: 'device-a', name: 'A'),
+        baselineStore: baselineStoreA,
+      );
+      final SyncSession sessionB = SyncSession(
+        repository: repoB,
+        localIdentity: const DeviceIdentity(id: 'device-b', name: 'B'),
+        baselineStore: baselineStoreB,
+      );
+
+      final List<Object> results = await Future.wait([
+        sessionA
+            .sync(client, isTrusted: (_) async => true)
+            .then<Object>((v) => v, onError: (Object e) => e),
+        sessionB
+            .sync(server, isTrusted: (_) async => true)
+            .then<Object>((v) => v, onError: (Object e) => e),
+      ]);
+
+      expect(results[0], isNot(isA<SyncResult>()));
+      expect(results[1], isNot(isA<SyncResult>()));
+      expect(await baselineStoreA.loadBaseline('device-b'), isNull);
+      expect(await baselineStoreB.loadBaseline('device-a'), isNull);
+
+      await serverSocket.close();
+    });
+
     test('reports progress as each planned transfer completes', () async {
       final FileSystemNoteRepository repoA = FileSystemNoteRepository(vaultA);
       final FileSystemNoteRepository repoB = FileSystemNoteRepository(vaultB);

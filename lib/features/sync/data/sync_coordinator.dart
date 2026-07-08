@@ -88,7 +88,7 @@ class SyncCoordinator {
       deviceName: identity.name,
       port: port,
     );
-    await discovery.startDiscovery();
+    await discovery.startDiscovery(ownDeviceId: identity.id);
   }
 
   Future<void> stopNetworkDiscovery() async {

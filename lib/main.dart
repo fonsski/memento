@@ -82,10 +82,12 @@ class _MementoAppState extends State<MementoApp> {
   }
 
   /// Sets up P2P sync for [repository]. Failures here (e.g. no
-  /// path_provider/network plugin available on this platform) are
-  /// swallowed — sync is an optional feature, not something that should
-  /// take the whole app down if it can't start; the sync button just
-  /// stays disabled.
+  /// path_provider/network plugin available on this platform, no
+  /// avahi-daemon for mDNS) don't propagate — sync is an optional
+  /// feature, not something that should take the whole app down if it
+  /// can't start; the sync button just stays disabled. The error is
+  /// still logged, so a mysteriously disabled button is diagnosable
+  /// from the console.
   Future<void> _setUpSync(FileSystemNoteRepository repository) async {
     try {
       final DeviceIdentity identity =
@@ -114,8 +116,9 @@ class _MementoAppState extends State<MementoApp> {
         _baselineStore = baselineStore;
         _syncCoordinator = coordinator;
       });
-    } catch (_) {
+    } catch (error) {
       // Sync stays unavailable; nothing else in the app depends on it.
+      debugPrint('[sync] setup failed, sync stays disabled: $error');
     }
   }
 

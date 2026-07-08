@@ -13,6 +13,7 @@ import 'features/notes/domain/note_repository.dart';
 import 'features/notes/presentation/home_screen.dart';
 import 'features/sync/data/device_identity_store.dart';
 import 'features/sync/data/pairing_store.dart';
+import 'features/sync/data/sync_baseline_store.dart';
 import 'features/sync/data/sync_coordinator.dart';
 import 'features/sync/domain/device_identity.dart';
 
@@ -72,6 +73,7 @@ class _MementoAppState extends State<MementoApp> {
   SyncCoordinator? _syncCoordinator;
   DeviceIdentity? _identity;
   PairingStore? _pairingStore;
+  SyncBaselineStore? _baselineStore;
 
   @override
   void initState() {
@@ -91,10 +93,13 @@ class _MementoAppState extends State<MementoApp> {
           await (await DeviceIdentityStore.create()).loadOrCreate();
       final PairingStore pairingStore =
           _pairingStore ?? await PairingStore.create();
+      final SyncBaselineStore baselineStore =
+          _baselineStore ?? await SyncBaselineStore.create();
       final SyncCoordinator coordinator = SyncCoordinator(
         repository: repository,
         identity: identity,
         pairingStore: pairingStore,
+        baselineStore: baselineStore,
       );
       await coordinator.startListening();
       await coordinator.startNetworkDiscovery();
@@ -106,6 +111,7 @@ class _MementoAppState extends State<MementoApp> {
       setState(() {
         _identity = identity;
         _pairingStore = pairingStore;
+        _baselineStore = baselineStore;
         _syncCoordinator = coordinator;
       });
     } catch (_) {

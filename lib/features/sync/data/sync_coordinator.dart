@@ -8,6 +8,7 @@ import '../domain/discovered_peer.dart';
 import '../domain/peer_info.dart';
 import '../domain/trusted_peer.dart';
 import 'pairing_store.dart';
+import 'sync_baseline_store.dart';
 import 'sync_discovery_service.dart';
 import 'sync_session.dart';
 import 'sync_wire.dart';
@@ -26,11 +27,13 @@ class SyncCoordinator {
     required this.repository,
     required this.identity,
     required this.pairingStore,
+    required this.baselineStore,
   });
 
   final FileSystemNoteRepository repository;
   final DeviceIdentity identity;
   final PairingStore pairingStore;
+  final SyncBaselineStore baselineStore;
 
   final SyncDiscoveryService discovery = SyncDiscoveryService();
   ServerSocket? _serverSocket;
@@ -106,6 +109,7 @@ class SyncCoordinator {
     final SyncSession session = SyncSession(
       repository: repository,
       localIdentity: identity,
+      baselineStore: baselineStore,
     );
     final PeerInfo info = await session.pair(
       MessageChannel(socket),
@@ -123,6 +127,7 @@ class SyncCoordinator {
     final SyncSession session = SyncSession(
       repository: repository,
       localIdentity: identity,
+      baselineStore: baselineStore,
     );
     return session.sync(
       MessageChannel(socket),
@@ -135,6 +140,7 @@ class SyncCoordinator {
     final SyncSession session = SyncSession(
       repository: repository,
       localIdentity: identity,
+      baselineStore: baselineStore,
     );
     final String? code = _pendingPairingCode;
 

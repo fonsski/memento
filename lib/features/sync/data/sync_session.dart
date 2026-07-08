@@ -5,6 +5,7 @@ import '../domain/device_identity.dart';
 import '../domain/peer_info.dart';
 import '../domain/sync_diff.dart';
 import '../domain/sync_manifest.dart';
+import 'sync_baseline_store.dart';
 import 'sync_manifest_builder.dart';
 import 'sync_wire.dart';
 
@@ -30,10 +31,15 @@ class SyncUntrustedPeerException implements Exception {
 /// connection — callers open a fresh connection per pairing attempt or
 /// sync run.
 class SyncSession {
-  SyncSession({required this.repository, required this.localIdentity});
+  SyncSession({
+    required this.repository,
+    required this.localIdentity,
+    required this.baselineStore,
+  });
 
   final FileSystemNoteRepository repository;
   final DeviceIdentity localIdentity;
+  final SyncBaselineStore baselineStore;
 
   Future<HelloMessage> _exchangeHello(
     MessageChannel channel,
@@ -92,10 +98,13 @@ class SyncSession {
   }
 
   /// Runs a full sync with an already-paired peer: exchanges manifests,
-  /// then pushes/pulls notes per [diffManifests], applying a
-  /// `.conflict-<timestamp>` copy before overwriting the losing side of
-  /// a genuine conflict. [isTrusted] is checked against the peer's
-  /// announced id before any vault data is exchanged.
+  /// then pushes/pulls/deletes notes per [diffManifests] (against this
+  /// peer's baseline from the last successful sync, so offline deletions
+  /// don't resurrect), applying a `.conflict-<timestamp>` copy before
+  /// overwriting the losing side of a genuine conflict. [isTrusted] is
+  /// checked against the peer's announced id before any vault data is
+  /// exchanged. On success, saves the post-sync vault state as the new
+  /// baseline for this peer.
   Future<PeerInfo> sync(
     MessageChannel channel, {
     required Future<bool> Function(String peerDeviceId) isTrusted,
@@ -115,9 +124,13 @@ class SyncSession {
       final ManifestMessage remoteManifestMessage =
           await _next<ManifestMessage>(incoming);
 
+      final SyncManifest? baseline = await baselineStore.loadBaseline(
+        peerHello.deviceId,
+      );
       final List<SyncAction> actions = diffManifests(
         localManifest,
         remoteManifestMessage.manifest,
+        baseline: baseline,
       );
       final List<SyncAction> pushes = [
         for (final SyncAction action in actions)
@@ -126,6 +139,10 @@ class SyncSession {
       final List<SyncAction> pulls = [
         for (final SyncAction action in actions)
           if (action.kind == SyncActionKind.pull) action,
+      ];
+      final List<SyncAction> deletions = [
+        for (final SyncAction action in actions)
+          if (action.kind == SyncActionKind.deleteLocal) action,
       ];
 
       for (final SyncAction action in pushes) {
@@ -145,6 +162,13 @@ class SyncSession {
         final SyncAction action = pullsByPath[message.path]!;
         await _applyPull(action, message.content);
       }
+
+      for (final SyncAction action in deletions) {
+        await repository.delete(action.path);
+      }
+
+      final SyncManifest finalManifest = await buildSyncManifest(repository);
+      await baselineStore.saveBaseline(peerHello.deviceId, finalManifest);
 
       return PeerInfo(deviceId: peerHello.deviceId, name: peerHello.deviceName);
     } finally {

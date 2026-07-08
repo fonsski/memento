@@ -74,31 +74,11 @@ class ManifestMessage extends SyncMessage {
 
   final SyncManifest manifest;
 
-  static ManifestMessage fromJson(Map<String, dynamic> json) {
-    final List<dynamic> rawEntries = json['entries'] as List<dynamic>;
-    final Map<String, ManifestEntry> entries = {
-      for (final dynamic raw in rawEntries)
-        (raw as Map<String, dynamic>)['path'] as String: ManifestEntry(
-          path: raw['path'] as String,
-          modifiedAt: DateTime.parse(raw['modifiedAt'] as String),
-          contentHash: raw['contentHash'] as String,
-        ),
-    };
-    return ManifestMessage(manifest: SyncManifest(entries));
-  }
+  static ManifestMessage fromJson(Map<String, dynamic> json) =>
+      ManifestMessage(manifest: SyncManifest.fromJson(json));
 
   @override
-  Map<String, dynamic> toJson() => {
-    'type': 'manifest',
-    'entries': [
-      for (final ManifestEntry entry in manifest.entries.values)
-        {
-          'path': entry.path,
-          'modifiedAt': entry.modifiedAt.toIso8601String(),
-          'contentHash': entry.contentHash,
-        },
-    ],
-  };
+  Map<String, dynamic> toJson() => {'type': 'manifest', ...manifest.toJson()};
 }
 
 /// Requests the peer's content for [path] (used to pull it).

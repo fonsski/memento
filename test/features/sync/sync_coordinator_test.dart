@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:memento/features/notes/data/file_system_note_repository.dart';
 import 'package:memento/features/sync/data/pairing_store.dart';
+import 'package:memento/features/sync/data/sync_baseline_store.dart';
 import 'package:memento/features/sync/data/sync_coordinator.dart';
 import 'package:memento/features/sync/data/sync_session.dart';
 import 'package:memento/features/sync/domain/device_identity.dart';
@@ -28,6 +29,9 @@ Future<(SyncCoordinator, Directory)> _setUpCoordinator(
     repository: FileSystemNoteRepository(vaultRoot),
     identity: DeviceIdentity(id: deviceId, name: deviceName),
     pairingStore: PairingStore(File(p.join(settingsDir.path, 'peers.json'))),
+    baselineStore: SyncBaselineStore(
+      Directory(p.join(settingsDir.path, 'sync_baselines')),
+    ),
   );
   await coordinator.startListening();
   return (coordinator, vaultRoot);

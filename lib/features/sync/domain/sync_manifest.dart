@@ -21,4 +21,30 @@ class SyncManifest {
   const SyncManifest(this.entries);
 
   final Map<String, ManifestEntry> entries;
+
+  /// Shared by the wire protocol (sending a manifest to a peer) and the
+  /// sync baseline store (persisting one locally as the record of a
+  /// peer's last-synced state).
+  Map<String, dynamic> toJson() => {
+    'entries': [
+      for (final ManifestEntry entry in entries.values)
+        {
+          'path': entry.path,
+          'modifiedAt': entry.modifiedAt.toIso8601String(),
+          'contentHash': entry.contentHash,
+        },
+    ],
+  };
+
+  static SyncManifest fromJson(Map<String, dynamic> json) {
+    final List<dynamic> rawEntries = json['entries'] as List<dynamic>;
+    return SyncManifest({
+      for (final dynamic raw in rawEntries)
+        (raw as Map<String, dynamic>)['path'] as String: ManifestEntry(
+          path: raw['path'] as String,
+          modifiedAt: DateTime.parse(raw['modifiedAt'] as String),
+          contentHash: raw['contentHash'] as String,
+        ),
+    });
+  }
 }

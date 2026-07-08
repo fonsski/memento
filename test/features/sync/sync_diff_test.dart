@@ -89,4 +89,103 @@ void main() {
       isEmpty,
     );
   });
+
+  group('with a baseline', () {
+    test('a path deleted locally since the baseline produces no action, '
+        'rather than being pulled back', () {
+      const SyncManifest local = SyncManifest({});
+      final SyncManifest remote = SyncManifest({'a': entry('a', t0, 'h')});
+      final SyncManifest baseline = SyncManifest({'a': entry('a', t0, 'h')});
+
+      expect(diffManifests(local, remote, baseline: baseline), isEmpty);
+    });
+
+    test(
+      'a path new on the remote (never in the baseline) is still pulled',
+      () {
+        const SyncManifest local = SyncManifest({});
+        final SyncManifest remote = SyncManifest({'a': entry('a', t0, 'h')});
+        const SyncManifest baseline = SyncManifest({});
+
+        final List<SyncAction> actions = diffManifests(
+          local,
+          remote,
+          baseline: baseline,
+        );
+
+        expect(actions, [
+          const SyncAction(
+            path: 'a',
+            kind: SyncActionKind.pull,
+            conflict: false,
+          ),
+        ]);
+      },
+    );
+
+    test('a path deleted remotely since the baseline, untouched locally, '
+        'is deleted locally', () {
+      final SyncManifest local = SyncManifest({'a': entry('a', t0, 'h')});
+      const SyncManifest remote = SyncManifest({});
+      final SyncManifest baseline = SyncManifest({'a': entry('a', t0, 'h')});
+
+      final List<SyncAction> actions = diffManifests(
+        local,
+        remote,
+        baseline: baseline,
+      );
+
+      expect(actions, [
+        const SyncAction(
+          path: 'a',
+          kind: SyncActionKind.deleteLocal,
+          conflict: false,
+        ),
+      ]);
+    });
+
+    test('a path edited locally after the peer deleted it keeps the edit '
+        'and pushes it, rather than deleting it', () {
+      final SyncManifest local = SyncManifest({'a': entry('a', t1, 'new')});
+      const SyncManifest remote = SyncManifest({});
+      final SyncManifest baseline = SyncManifest({'a': entry('a', t0, 'old')});
+
+      final List<SyncAction> actions = diffManifests(
+        local,
+        remote,
+        baseline: baseline,
+      );
+
+      expect(actions, [
+        const SyncAction(path: 'a', kind: SyncActionKind.push, conflict: false),
+      ]);
+    });
+
+    test('a path new locally (never in the baseline) is still pushed', () {
+      final SyncManifest local = SyncManifest({'a': entry('a', t0, 'h')});
+      const SyncManifest remote = SyncManifest({});
+      const SyncManifest baseline = SyncManifest({});
+
+      final List<SyncAction> actions = diffManifests(
+        local,
+        remote,
+        baseline: baseline,
+      );
+
+      expect(actions, [
+        const SyncAction(path: 'a', kind: SyncActionKind.push, conflict: false),
+      ]);
+    });
+
+    test('without a baseline, one-sided paths are always treated as new', () {
+      const SyncManifest local = SyncManifest({});
+      final SyncManifest remote = SyncManifest({'a': entry('a', t0, 'h')});
+
+      final List<SyncAction> actions = diffManifests(local, remote);
+
+      expect(actions, [
+        const SyncAction(path: 'a', kind: SyncActionKind.pull, conflict: false),
+      ]);
+    });
+  });
 }

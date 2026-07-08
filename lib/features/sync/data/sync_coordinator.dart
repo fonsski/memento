@@ -29,12 +29,22 @@ class SyncCoordinator {
     required this.identity,
     required this.pairingStore,
     required this.baselineStore,
+    this.connectTimeout = const Duration(seconds: 10),
   });
 
   final FileSystemNoteRepository repository;
   final DeviceIdentity identity;
   final PairingStore pairingStore;
   final SyncBaselineStore baselineStore;
+
+  /// How long [pairWithPeer]/[syncWithPeer] wait for the initial TCP
+  /// connection before giving up — without this, a peer that's gone
+  /// offline (or a firewall silently dropping packets) hangs on the OS's
+  /// own default connect timeout, which is often 30s or more, with no
+  /// feedback in the meantime. Overridable (rather than a constant) so
+  /// tests can use a short one against a deliberately unreachable
+  /// address instead of waiting out the real default.
+  final Duration connectTimeout;
 
   final SyncDiscoveryService discovery = SyncDiscoveryService();
   ServerSocket? _serverSocket;
@@ -116,7 +126,11 @@ class SyncCoordinator {
   /// Connects to [peer] and pairs with it using [code] (the code shown
   /// on the peer's screen). Persists the peer as trusted on success.
   Future<PeerInfo> pairWithPeer(DiscoveredPeer peer, String code) async {
-    final Socket socket = await Socket.connect(peer.host, peer.port);
+    final Socket socket = await Socket.connect(
+      peer.host,
+      peer.port,
+      timeout: connectTimeout,
+    );
     final SyncSession session = SyncSession(
       repository: repository,
       localIdentity: identity,
@@ -134,7 +148,11 @@ class SyncCoordinator {
 
   /// Connects to an already-trusted [peer] and runs a full sync.
   Future<PeerInfo> syncWithPeer(DiscoveredPeer peer) async {
-    final Socket socket = await Socket.connect(peer.host, peer.port);
+    final Socket socket = await Socket.connect(
+      peer.host,
+      peer.port,
+      timeout: connectTimeout,
+    );
     final SyncSession session = SyncSession(
       repository: repository,
       localIdentity: identity,
